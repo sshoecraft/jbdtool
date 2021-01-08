@@ -1,10 +1,11 @@
 
 PROG=jbdtool
-SRCS=main.c module.c jbd.c ip.c bt.c parson.c
+SRCS=main.c module.c jbd.c ip.c bt.c parson.c list.c trim.c bindump.c strele.c
 OBJS=$(SRCS:.c=.o)
 CFLAGS+=-DJBDTOOL
-CFLAGS+=-g -Wall -I../mybmm -I../util
-LIBS=../util/libutil_linux64_debug.a -ldl -lgattlib -lglib-2.0 -lpthread
+#CFLAGS+=-g -Wall -I../mybmm -I../util
+CFLAGS+=-g -Wall
+LIBS+=-ldl -lgattlib -lglib-2.0 -lpthread
 LDFLAGS+=-rdynamic
 
 all: $(PROG)

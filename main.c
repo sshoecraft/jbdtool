@@ -7,6 +7,9 @@ This source code is licensed under the BSD-style license found in the
 LICENSE file in the root directory of this source tree.
 */
 
+struct mybmm_config;
+typedef struct mybmm_config mybmm_config_t;
+
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -16,7 +19,7 @@ LICENSE file in the root directory of this source tree.
 #include <errno.h>
 #include <ctype.h>
 #include <dlfcn.h>
-#include "util.h"
+//#include "util.h"
 #include "parson.h"
 #include "mybmm.h"
 #include "jbd.h"
