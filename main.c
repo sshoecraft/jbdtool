@@ -470,6 +470,42 @@ enum JBDTOOL_ACTION {
 	JBDTOOL_ACTION_LIST
 };
 
+int write_parm(void *h, struct jbd_params *pp, char *value) {
+	uint8_t data[128];
+	int len;
+
+	dprintf(3,"h: %p, pp->label: %s, value: %s\n",h,pp->label,value);
+	len = 2;
+	dprintf(3,"dt: %d\n", pp->dt);
+	switch(pp->dt) {
+	case JBD_PARM_DT_INT:
+	case JBD_PARM_DT_TEMP:
+	case JBD_PARM_DT_DATE:
+	case JBD_PARM_DT_PCT:
+	case JBD_PARM_DT_FUNC:
+	case JBD_PARM_DT_NTC:
+		_putshort(data,atoi(value));
+		break;
+	case JBD_PARM_DT_B0:
+		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 1) return -1;
+		data[0] = atoi(value);
+		break;
+	case JBD_PARM_DT_B1:
+		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 1) return -1;
+		data[1] = atoi(value);
+		break;
+	case JBD_PARM_DT_FLOAT:
+		_putshort(data,atof(value));
+		break;
+	case JBD_PARM_DT_STR:
+		len = strlen(value);
+		memcpy(data,value,len);
+		break;
+	}
+//	bindump("write data",data,len);
+	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
+}
+
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i;
 	char *transport,*target,*label,*filename,*outfile,*p;
@@ -484,7 +520,7 @@ int main(int argc, char **argv) {
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = 0;
-	while ((opt=getopt(argc, argv, "+ab:cd:i:jJo:rwlh")) != -1) {
+	while ((opt=getopt(argc, argv, "+ab:cd:i:f:jJo:rwlh")) != -1) {
 		switch (opt) {
 		case 'a':
 			all = 1;
@@ -613,37 +649,76 @@ int main(int argc, char **argv) {
 			char line[128];
 			FILE *fp;
 
-			dprintf(1,"filename: %s\n", filename);
-			fp = fopen(filename,"r");
-			if (!fp) {
-				printf("fopen(r) %s: %s\n", filename, strerror(errno));
-				return 1;
-			}
-			if (pack.open(pack.handle)) return 1;
-			if (jbd_eeprom_start(pack.handle)) return 1;
-			while(fgets(line,sizeof(line),fp)) {
-				p = line;
-				while(*p && isspace(*p)) p++;
-				label = p;
-				while(*p && !isspace(*p)) p++;
-				*p = 0;
-				pp = _getp(label);
-				dprintf(2,"pp: %p\n", pp);
-				if (!pp) continue;
-				memset(data,0,sizeof(data));
-				bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
-				if (bytes < 0) continue;
-				dprintf(2,"bytes: %d\n", bytes);
-				pdisp(pp->label,pp->dt,data,bytes);
-			}
-			jbd_eeprom_end(pack.handle);
-			pack.close(pack.handle);
-			fclose(fp);
-		} else {
-			dprintf(1,"all: %d\n", all);
-			if (all) {
+			dprintf(2,"filename: %s\n", filename);
+
+			/* Get param names from .json file? */
+			p = strrchr(filename,'.');
+			if (p && strcmp(p,".json")==0) {
+				JSON_Object *object;
+				int count;
+
+				root_value = json_parse_file(filename);
+				if (json_value_get_type(root_value) != JSONObject) {
+					printf("error: not a valid json file\n");
+					return 1;
+				}
 				if (pack.open(pack.handle)) return 1;
 				if (jbd_eeprom_start(pack.handle)) return 1;
+				object = json_value_get_object(root_value);
+				count  = json_object_get_count(object);
+				for (i = 0; i < count; i++) {
+					p = (char *)json_object_get_name(object, i);
+					if (!p) {
+						printf("error reading json file\n");
+						return 1;
+					}
+					dprintf(3,"p: %s\n", p);
+					pp = _getp(p);
+					if (!pp) {
+						printf("error: parm in json file not found: %s\n", p);
+						return 1;
+					}
+					memset(data,0,sizeof(data));
+					bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
+					if (bytes < 0) continue;
+					dprintf(3,"bytes: %d\n", bytes);
+					pdisp(pp->label,pp->dt,data,bytes);
+				}
+				jbd_eeprom_end(pack.handle);
+				pack.close(pack.handle);
+				json_value_free(root_value);
+			} else {
+				fp = fopen(filename,"r");
+				if (!fp) {
+					printf("fopen(r) %s: %s\n", filename, strerror(errno));
+					return 1;
+				}
+				if (pack.open(pack.handle)) return 1;
+				if (jbd_eeprom_start(pack.handle)) return 1;
+				while(fgets(line,sizeof(line),fp)) {
+					p = line;
+					while(*p && isspace(*p)) p++;
+					label = p;
+					while(*p && !isspace(*p)) p++;
+					*p = 0;
+					pp = _getp(label);
+					dprintf(3,"pp: %p\n", pp);
+					if (!pp) continue;
+					memset(data,0,sizeof(data));
+					bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
+					if (bytes < 0) continue;
+					dprintf(3,"bytes: %d\n", bytes);
+					pdisp(pp->label,pp->dt,data,bytes);
+				}
+				jbd_eeprom_end(pack.handle);
+				pack.close(pack.handle);
+				fclose(fp);
+			}
+		} else {
+			dprintf(1,"all: %d\n", all);
+			if (pack.open(pack.handle)) return 1;
+			if (jbd_eeprom_start(pack.handle)) return 1;
+			if (all) {
 				for(pp = params; pp->label; pp++) {
 					dprintf(3,"pp->label: %s\n", pp->label);
 					memset(data,0,sizeof(data));
@@ -651,26 +726,24 @@ int main(int argc, char **argv) {
 					if (bytes < 0) break;
 					if (bytes) pdisp(pp->label,pp->dt,data,bytes);
 				}
-				jbd_eeprom_end(pack.handle);
-				pack.close(pack.handle);
 			} else {
+				/* Every arg is a parm name */
 				for(i=0; i < argc; i++) {
 					pp = _getp(argv[i]);
 					dprintf(2,"pp: %p\n", pp);
 					if (!pp) {
-						printf("error: parameter not found.\n");
+						printf("error: parameter %s not found.\n",argv[i]);
 						return 1;
 					}
 					if (pack.open(pack.handle)) return 1;
 					if (jbd_eeprom_start(pack.handle)) return 1;
 					memset(data,0,sizeof(data));
 					bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
-//					bindump("data",data,bytes);
-					jbd_eeprom_end(pack.handle);
-					pack.close(pack.handle);
 					if (bytes > 0) pdisp(pp->label,pp->dt,data,bytes);
 				}
 			}
+			jbd_eeprom_end(pack.handle);
+			pack.close(pack.handle);
 		}
 		break;
 	case JBDTOOL_ACTION_WRITE:
@@ -678,48 +751,108 @@ int main(int argc, char **argv) {
 			char line[128],*valp;
 			FILE *fp;
 
-			dprintf(1,"filename: %s\n", filename);
-			fp = fopen(filename,"r");
-			if (!fp) {
-				printf("fopen(r) %s: %s\n", filename, strerror(errno));
-				return 1;
+			dprintf(3,"filename: %s\n", filename);
+
+			p = strrchr(filename,'.');
+			if (p && strcmp(p,".json")==0) {
+				char temp[128];
+				JSON_Object *object;
+				JSON_Value *value;
+				int count,type,num;
+
+				root_value = json_parse_file(filename);
+				if (json_value_get_type(root_value) != JSONObject) {
+					printf("error: not a valid json file\n");
+					return 1;
+				}
+				if (pack.open(pack.handle)) return 1;
+				if (jbd_eeprom_start(pack.handle)) return 1;
+				object = json_value_get_object(root_value);
+				count  = json_object_get_count(object);
+				for (i = 0; i < count; i++) {
+					p = (char *)json_object_get_name(object, i);
+					if (!p) {
+						printf("error reading json file\n");
+						return 1;
+					}
+					dprintf(3,"p: %s\n", p);
+					pp = _getp(p);
+					if (!pp) {
+						printf("error: parm in json file not found: %s\n", p);
+						return 1;
+					}
+					value = json_object_get_value(object, pp->label);
+					type = json_value_get_type(value);
+					switch(type) {
+					case JSONString:
+						p = (char *)json_value_get_string(value);
+						break;
+					case JSONNumber:
+						num = (int)json_value_get_number(value);
+						dprintf(3,"value: %d\n", num);
+						sprintf(temp,"%d",num);
+						p = temp;
+						break;
+					default:
+						printf("error: bad type in json file: %d\n", type);
+						break;
+					}
+					if (write_parm(pack.handle,pp,p)) break;
+				}
+				jbd_eeprom_end(pack.handle);
+				pack.close(pack.handle);
+				json_value_free(root_value);
+			} else {
+				fp = fopen(filename,"r");
+				if (!fp) {
+					printf("fopen(r) %s: %s\n", filename, strerror(errno));
+					return 1;
+				}
+				if (pack.open(pack.handle)) return 1;
+				if (jbd_eeprom_start(pack.handle)) return 1;
+				while(fgets(line,sizeof(line),fp)) {
+					/* get parm */
+					p = line;
+					while(*p && isspace(*p)) p++;
+					label = p;
+					while(*p && !isspace(*p)) p++;
+					*p = 0;
+					dprintf(3,"label: %s\n", label);
+					pp = _getp(label);
+					dprintf(4,"pp: %p\n", pp);
+					if (!pp) continue;
+					/* get value */
+					p++;
+					while(*p && isspace(*p)) p++;
+					valp = p;
+					while(*p && !isspace(*p)) p++;
+					*p = 0;
+					dprintf(3,"valp: %s\n", valp);
+					if (write_parm(pack.handle,pp,valp)) break;
+				}
 			}
-//			if (pack.open(pack.handle)) return 1;
-//			if (jbd_eeprom_start(pack.handle)) return 1;
-			while(fgets(line,sizeof(line),fp)) {
-				/* get parm */
-				p = line;
-				while(*p && isspace(*p)) p++;
-				label = p;
-				while(*p && !isspace(*p)) p++;
-				*p = 0;
-				dprintf(2,"label: %s\n", label);
-				pp = _getp(label);
-				dprintf(4,"pp: %p\n", pp);
-				if (!pp) continue;
-				/* get value */
-				p++;
-				while(*p && isspace(*p)) p++;
-				valp = p;
-				while(*p && !isspace(*p)) p++;
-				*p = 0;
-				dprintf(2,"valp: %s\n", valp);
-				dprintf(1,"dt: %d\n", pp->dt);
-				memset(data,0,sizeof(data));
-				_putshort(data,atoi(valp));
-#if 0
-				bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
-				if (bytes < 0) continue;
-				dprintf(2,"bytes: %d\n", bytes);
-//				bindump("data",data,bytes);
-#endif
-			}
-//			jbd_eeprom_end(pack.handle);
+			jbd_eeprom_end(pack.handle);
+			pack.close(pack.handle);
+		} else {
+			/* Every arg par is a parm name & value */
 			if (pack.open(pack.handle)) return 1;
 			if (jbd_eeprom_start(pack.handle)) return 1;
-			memset(data,0,sizeof(data));
-			bytes = jbd_rw(pack.handle, JBD_CMD_WRITE, pp->reg, data, sizeof(data));
-//			bindump("data",data,bytes);
+			for(i=0; i < argc; i++) {
+				/* Ge the parm */
+				pp = _getp(argv[i]);
+				dprintf(3,"pp: %p\n", pp);
+				if (!pp) {
+					printf("error: parameter %s not found.\n",argv[i]);
+					break;
+				}
+				/* Get the value */
+				if (i+1 == argc) {
+					printf("error: no value for parameter %s\n",argv[i]);
+					break;
+				}
+				i++;
+				if (write_parm(pack.handle,pp,argv[i])) break;
+			}
 			jbd_eeprom_end(pack.handle);
 			pack.close(pack.handle);
 		}

@@ -273,7 +273,7 @@ int jbd_rw(jbd_session_t *s, uint8_t action, uint8_t reg, uint8_t *data, int dat
 			dprintf(5,"returning: -1\n");
 			return -1;
 		}
-		dprintf(1,"writing...\n");
+		dprintf(5,"writing...\n");
 		bytes = s->tp->write(s->tp_handle,cmd,cmdlen);
 		dprintf(5,"bytes: %d\n", bytes);
 		bytes = s->tp->read(s->tp_handle,buf,sizeof(buf));
