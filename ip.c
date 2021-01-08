@@ -31,7 +31,7 @@ static int ip_init(mybmm_config_t *conf) {
 static void *ip_new(mybmm_config_t *conf, ...) {
 	ip_session_t *s;
 	va_list ap;
-	char *target;
+	char *target,*p;
 
 	va_start(ap,conf);
 	target = va_arg(ap,char *);
@@ -44,8 +44,13 @@ static void *ip_new(mybmm_config_t *conf, ...) {
 		return 0;
 	}
 	s->address[0] = 0;
-	strncat(s->address,strele(0,":",target),MYBMM_TARGET_LEN);
-	s->port = atoi(strele(1,":",target));
+	p = strchr(target,':');
+	if (p) *p = 0;
+	strncat(s->address,target,MYBMM_TARGET_LEN);
+	if (p) {
+		p++;
+		s->port = atoi(p);
+	}
 	if (!s->port) s->port = DEFAULT_PORT;
 	dprintf(5,"address: %s, port: %d\n", s->address, s->port);
 	return s;

@@ -1,6 +1,6 @@
 
 PROG=jbdtool
-SRCS=main.c module.c jbd.c ip.c bt.c parson.c list.c trim.c bindump.c strele.c
+SRCS=main.c module.c jbd.c ip.c bt.c parson.c list.c utils.c
 OBJS=$(SRCS:.c=.o)
 CFLAGS+=-DJBDTOOL
 #CFLAGS+=-g -Wall -I../mybmm -I../util
