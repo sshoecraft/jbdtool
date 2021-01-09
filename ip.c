@@ -79,7 +79,7 @@ static int ip_open(void *handle) {
 	addr.sin_addr.s_addr = inet_addr(s->address);
 	addr.sin_port = htons(s->port);
 	if (connect(s->fd,(struct sockaddr *)&addr,sin_size) < 0) {
-		if (debug > 2) perror("ip_open: connect");
+		perror("ip_open: connect");
 		goto ip_open_error;
 	}
 

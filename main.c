@@ -448,8 +448,6 @@ void display_info(jbd_info_t *info) {
 #endif
 }
 
-void usage() { }
-
 int init_pack(mybmm_pack_t *pp, mybmm_config_t *c, char *type, char *transport, char *target, char *params, mybmm_module_t *cp, mybmm_module_t *tp) {
 	memset(pp,0,sizeof(*pp));
 	strcpy(pp->type,type);
@@ -504,6 +502,27 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	}
 //	bindump("write data",data,len);
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
+}
+
+void usage() {
+	printf("usage: jbdtool [-acjJrwlh] [-f filename] [-b <bluetooth mac addr | -i <ip addr>] [-o output file]\n");
+	printf("arguments:\n");
+	printf("  -a		All parameters (only valid for read -r)\n");
+#ifdef DEBUG
+	printf("  -d <#>		debug output\n");
+#endif
+	printf("  -c		comma-delimited output\n");
+	printf("  -j		JSON output\n");
+	printf("  -J		JSON output pretty print\n");
+	printf("  -r		read parameters\n");
+	printf("  -w		write parameters\n");
+	printf("  -w		write parameters\n");
+	printf("  -l		list supported parameters\n");
+	printf("  -h		this output\n");
+	printf("  -f <filename>	input filename for read/write.\n");
+	printf("  -o <filename>	output filename\n");
+	printf("  -b <mac addr>	bluetooth mac addr\n");
+	printf("  -i <IP addr>	ip addr\n");
 }
 
 int main(int argc, char **argv) {
