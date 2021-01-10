@@ -523,11 +523,12 @@ void usage() {
 	printf("  -b <mac addr>	bluetooth mac addr\n");
 	printf("  -i <IP addr>	ip addr\n");
 	printf("  -n <CAN interface> CAN bus interface\n");
-	printf("  -s <CAN bitrate> CAN bus bitrate\n");
+	printf("  -s <serial dev> Serial bus device\n");
+	printf("  -e <speed>	CAN/Serial speed\n");
 }
 
 int main(int argc, char **argv) {
-	int opt,bytes,action,pretty,all,i,can_speed;
+	int opt,bytes,action,pretty,all,i,speed;
 	char *transport,*target,*label,*filename,*outfile,*p;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
@@ -541,7 +542,7 @@ int main(int argc, char **argv) {
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = 0;
-	can_speed=500000;
+	speed=500000;
 	while ((opt=getopt(argc, argv, "+ab:cd:i:n:s:f:jJo:rwlh")) != -1) {
 		switch (opt) {
 		case 'a':
@@ -558,6 +559,9 @@ int main(int argc, char **argv) {
 			break;
 		case 'd':
 			debug=atoi(optarg);
+			break;
+		case 'e':
+			speed=atoi(optarg);
 			break;
                 case 'i':
 			transport="ip";
@@ -582,7 +586,8 @@ int main(int argc, char **argv) {
 			target=optarg;
 			break;
 		case 's':
-			can_speed=atoi(optarg);
+			transport="serial";
+			target=optarg;
 			break;
 #if 1
                 case 'r':
@@ -645,7 +650,7 @@ int main(int argc, char **argv) {
 
 	/* Init the pack */
 	opts[0] = 0;
-	if (transport && strcmp(transport,"can")==0) sprintf(opts,"%d",can_speed);
+	if (transport && (strcmp(transport,"can")==0 || strcmp(transport,"serial")==0)) sprintf(opts,"%d",speed);
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	if (outfile) {
