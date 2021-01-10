@@ -448,12 +448,12 @@ void display_info(jbd_info_t *info) {
 #endif
 }
 
-int init_pack(mybmm_pack_t *pp, mybmm_config_t *c, char *type, char *transport, char *target, char *params, mybmm_module_t *cp, mybmm_module_t *tp) {
+int init_pack(mybmm_pack_t *pp, mybmm_config_t *c, char *type, char *transport, char *target, char *opts, mybmm_module_t *cp, mybmm_module_t *tp) {
 	memset(pp,0,sizeof(*pp));
 	strcpy(pp->type,type);
 	if (transport) strcpy(pp->transport,transport);
 	if (target) strcpy(pp->target,target);
-	if (params) strcpy(pp->params,params);
+	if (opts) strcpy(pp->opts,opts);
         pp->open = cp->open;
         pp->read = cp->read;
         pp->close = cp->close;
@@ -507,7 +507,6 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 void usage() {
 	printf("usage: jbdtool [-acjJrwlh] [-f filename] [-b <bluetooth mac addr | -i <ip addr>] [-o output file]\n");
 	printf("arguments:\n");
-	printf("  -a		All parameters (only valid for read -r)\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
 #endif
@@ -515,7 +514,7 @@ void usage() {
 	printf("  -j		JSON output\n");
 	printf("  -J		JSON output pretty print\n");
 	printf("  -r		read parameters\n");
-	printf("  -w		write parameters\n");
+	printf("  -a		read all parameters\n");
 	printf("  -w		write parameters\n");
 	printf("  -l		list supported parameters\n");
 	printf("  -h		this output\n");
@@ -523,10 +522,12 @@ void usage() {
 	printf("  -o <filename>	output filename\n");
 	printf("  -b <mac addr>	bluetooth mac addr\n");
 	printf("  -i <IP addr>	ip addr\n");
+	printf("  -n <CAN interface> CAN bus interface\n");
+	printf("  -s <CAN bitrate> CAN bus bitrate\n");
 }
 
 int main(int argc, char **argv) {
-	int opt,bytes,action,pretty,all,i;
+	int opt,bytes,action,pretty,all,i,can_speed;
 	char *transport,*target,*label,*filename,*outfile,*p;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
@@ -534,12 +535,14 @@ int main(int argc, char **argv) {
 	jbd_info_t info;
 	jbd_params_t *pp;
 	uint8_t data[128];
+	char opts[64];
 
 	action = pretty = outfmt = all = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = 0;
-	while ((opt=getopt(argc, argv, "+ab:cd:i:f:jJo:rwlh")) != -1) {
+	can_speed=500000;
+	while ((opt=getopt(argc, argv, "+ab:cd:i:n:s:f:jJo:rwlh")) != -1) {
 		switch (opt) {
 		case 'a':
 			all = 1;
@@ -574,11 +577,13 @@ int main(int argc, char **argv) {
                 case 'o':
 			outfile = optarg;
 			break;
-#if 0
                 case 'n':
-			action=JBDTOOL_ACTION_INFO;
+			transport="can";
+			target=optarg;
 			break;
-#endif
+		case 's':
+			can_speed=atoi(optarg);
+			break;
 #if 1
                 case 'r':
 			action=JBDTOOL_ACTION_READ;
@@ -604,7 +609,7 @@ int main(int argc, char **argv) {
 			break;
 		case 'h':
 		default:
-//			usage();
+			usage();
 			exit(0);
                 }
         }
@@ -639,7 +644,9 @@ int main(int argc, char **argv) {
 	if (!cp) return 1;
 
 	/* Init the pack */
-	if (init_pack(&pack,conf,"jbd",transport,target,0,cp,tp)) return 1;
+	opts[0] = 0;
+	if (transport && strcmp(transport,"can")==0) sprintf(opts,"%d",can_speed);
+	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	if (outfile) {
 		dprintf(1,"outfile: %s\n", outfile);
@@ -664,6 +671,10 @@ int main(int argc, char **argv) {
 		pack.close(pack.handle);
 		break;
 	case JBDTOOL_ACTION_READ:
+		if (strcmp(transport,"can")==0) {
+			printf("error: reading parameters not possible using CAN bus\n");
+			return 1;
+		}
 		if (filename) {
 			char line[128];
 			FILE *fp;
@@ -766,6 +777,10 @@ int main(int argc, char **argv) {
 		}
 		break;
 	case JBDTOOL_ACTION_WRITE:
+		if (strcmp(transport,"can")==0) {
+			printf("error: writing parameters not possible using CAN bus\n");
+			return 1;
+		}
 		if (filename) {
 			char line[128],*valp;
 			FILE *fp;

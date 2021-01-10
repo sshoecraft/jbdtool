@@ -23,7 +23,7 @@ struct mybmm_pack {
 	char type[32];			/* BMS name */
 	char transport[32];		/* Transport name */
 	char target[32];		/* Transport target */
-	char params[64];		/* Pack-specific params */
+	char opts[64];			/* Pack-specific options */
 	unsigned char state;		/* Pack state */
 	int failed;			/* Update fail count */
 	char *errmsg;			/* Error message, updated by BMS */

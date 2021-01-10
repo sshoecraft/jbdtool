@@ -1,6 +1,6 @@
 
 PROG=jbdtool
-SRCS=main.c module.c jbd.c ip.c bt.c parson.c list.c utils.c
+SRCS=main.c module.c jbd.c ip.c bt.c can.c parson.c list.c utils.c
 OBJS=$(SRCS:.c=.o)
 CFLAGS+=-DJBDTOOL
 #CFLAGS+=-g -Wall -I../mybmm -I../util
@@ -19,7 +19,7 @@ debug: $(PROG)
 	gdb ./$(PROG)
 
 install: $(PROG)
-	sudo install -m 755 -o bin -g bin $(NAME) /usr/sbin
+	sudo install -m 755 -o bin -g bin $(PROG) /usr/bin/$(PROG)
 
 clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)

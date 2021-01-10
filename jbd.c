@@ -9,6 +9,7 @@ LICENSE file in the root directory of this source tree.
 
 #include "mybmm.h"
 #include "jbd.h"
+#include <linux/can.h>
 
 struct jbd_session {
 	mybmm_module_t *tp;		/* Our transport */
@@ -178,27 +179,29 @@ static unsigned short jbd_can_crc(unsigned char *pchMsg) {
 }
 
 
-static int jbd_can_get(jbd_session_t *s, int id, unsigned char *data, int len, int chk) {
+static int jbd_can_get(jbd_session_t *s, int id, unsigned char *data, int datalen, int chk) {
         unsigned short crc, mycrc;
-	uint8_t cmd[2];
-	int retries;
+	int retries,bytes;
 
-	dprintf(3,"id: %03x, data: %p, len: %d\n", id, data, len);
-	_putshort(cmd,id);
+	dprintf(3,"id: %03x, data: %p, len: %d, chk: %d\n", id, data, datalen, chk);
 	retries = 3;
 	do {
-		if (s->tp->read(s->tp_handle,cmd,2,data,len) < 0) return 1;
-		if (chk) {
-			/* Verify CRC */
-			crc = _getshort(&data[6]);
-			dprintf(3,"crc: %x\n", crc);
-			mycrc = jbd_can_crc(data);
-			dprintf(3,"mycrc: %x\n", mycrc);
-			if (crc == 0 || crc == mycrc) return 0;
-		}
+		if (s->tp->write(s->tp_handle,id,0,0) < 0) return 1;
+		memset(data,0,datalen);
+		bytes = s->tp->read(s->tp_handle,id,data,datalen);
+		dprintf(3,"bytes: %d\n", bytes);
+		if (bytes < 0) return 1;
+		if (!chk) break;
+		/* Verify CRC */
+		crc = _getshort(&data[6]);
+		dprintf(3,"crc: %x\n", crc);
+		mycrc = jbd_can_crc(data);
+		dprintf(3,"mycrc: %x\n", mycrc);
+		if (crc == 0 || crc == mycrc) break;
 	} while(retries--);
-	printf("ERROR: CRC failed retries for ID %03x!\n", id);
-	return 1;
+	dprintf(3,"retries: %d\n", retries);
+	if (!retries) printf("ERROR: CRC failed retries for ID %03x!\n", id);
+	return (retries == 0);
 }
 
 static int jbd_can_get_crc(jbd_session_t *s, int id, unsigned char *data, int len) {
@@ -369,7 +372,7 @@ static void *jbd_new(mybmm_config_t *conf, ...) {
 	/* Save a copy of the pack */
 	s->pp = pp;
 	s->tp = tp;
-	s->tp_handle = tp->new(conf,pp->target,pp->params);
+	s->tp_handle = tp->new(conf,pp->target,pp->opts);
 	if (!s->tp_handle) {
 		free(s);
 		return 0;
@@ -556,13 +559,13 @@ int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 		if (i >= info->strings) break;
 	}
 
-	if (jbd_can_get_crc(s,0x111,data,8)) return 1;
+	if (jbd_can_get(s,0x111,data,8,0)) return 1;
 	memcpy(&info->model[0],data,8);
-	if (jbd_can_get_crc(s,0x112,data,8)) return 1;
+	if (jbd_can_get(s,0x112,data,8,0)) return 1;
 	memcpy(&info->model[8],data,8);
-	if (jbd_can_get_crc(s,0x113,data,8)) return 1;
+	if (jbd_can_get(s,0x113,data,8,0)) return 1;
 	memcpy(&info->model[16],data,8);
-	if (jbd_can_get_crc(s,0x114,data,8)) return 1;
+	if (jbd_can_get(s,0x114,data,8,0)) return 1;
 	memcpy(&info->model[24],data,8);
 	dprintf(1,"model: %s\n", info->model);
 	return 0;
