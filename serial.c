@@ -121,7 +121,7 @@ static int serial_open(void *handle) {
 		printf("error %d opening %s: %s", errno, path, strerror(errno));
 		return 1;
 	}
-	set_interface_attribs(s->fd, B9600, 0, 0, 0, 0, 0);
+	set_interface_attribs(s->fd, B9600, 8, 1, 0, 1, 5);
 
 	return 0;
 }
@@ -129,30 +129,45 @@ static int serial_open(void *handle) {
 static int serial_read(void *handle, ...) {
 	serial_info_t *s = handle;
 	uint8_t *buf, ch;
-	int buflen, bytes, bidx;
+	int buflen, bytes, bidx, num;
+	struct timeval tv;
 	va_list ap;
+	fd_set rdset;
+
+	tv.tv_usec = 0;
+	tv.tv_sec = 1;
+
+        /* Do a select on the socket */
+//        numset = select(set->maxfd+1,(fd_set *)&set->fdset,(fd_set *)0, (fd_set *)0,tptr);
 
 	va_start(ap,handle);
-#if 0
-	cmd = va_arg(ap, uint8_t *);
-	cmdlen = va_arg(ap, int);
-#endif
 	buf = va_arg(ap, uint8_t *);
 	buflen = va_arg(ap, int);
 	va_end(ap);
 	dprintf(1,"buf: %p, buflen: %d\n", buf, buflen);
 
+	FD_ZERO(&rdset);
+	dprintf(5,"reading...\n");
+	bidx=0;
+	while(1) {
+		FD_SET(s->fd,&rdset);
+		num = select(s->fd+1,&rdset,0,0,&tv);
+		dprintf(5,"num: %d\n", num);
+		if (!num) break;
+		bytes = read(s->fd, &ch, 1);
+		dprintf(5,"bytes: %d\n", bytes);
+		if (bytes < 0) {
+			bidx = -1;
+			break;
+		} else if (bytes == 0) {
+			break;
+		} else if (bytes > 0) {
+			dprintf(5,"ch: %02x\n", ch);
+			buf[bidx++] = ch;
+			if (bidx >= buflen) break;
+		}
+	}
 #if 0
-	dprintf(1,"cmd: %p, cmdlen: %d, buf: %p, buflen: %d\n", cmd, cmdlen, buf, buflen);
-	if (debug >= 3) bindump("TO BMS",cmd,cmdlen);
-
-	dprintf(1,"writing...\n");
-	bytes = write(s->fd,cmd,cmdlen);
-	dprintf(1,"bytes: %d\n", bytes);
-	if (bytes < 0) return -1;
-	usleep ((cmdlen + 25) * 100);
-#endif
-	dprintf(1,"reading...\n");
 	bidx=0;
 	while(1) {
 		bytes = read(s->fd, &ch, 1);
@@ -163,14 +178,15 @@ static int serial_read(void *handle, ...) {
 		} else if (bytes == 0) {
 			break;
 		} else if (bytes > 0) {
-//			dprintf(5,"ch: %02x\n", ch);
+			dprintf(5,"ch: %02x\n", ch);
 			buf[bidx++] = ch;
 			if (bidx >= buflen) break;
 		}
-//		usleep(100);
+		usleep(100);
 	}
-//	bindump("serial",buf,bidx);
+#endif
 
+//	bindump("serial",buf,bidx);
 	dprintf(1,"returning: %d\n", bidx);
 	return bidx;
 }

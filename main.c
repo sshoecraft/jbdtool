@@ -770,8 +770,6 @@ int main(int argc, char **argv) {
 						printf("error: parameter %s not found.\n",argv[i]);
 						return 1;
 					}
-					if (pack.open(pack.handle)) return 1;
-					if (jbd_eeprom_start(pack.handle)) return 1;
 					memset(data,0,sizeof(data));
 					bytes = jbd_rw(pack.handle, JBD_CMD_READ, pp->reg, data, sizeof(data));
 					if (bytes > 0) pdisp(pp->label,pp->dt,data,bytes);

@@ -53,14 +53,18 @@ static int jbd_verify(uint8_t *buf, int len) {
 	/* 3: Length - must be size of packet minus protocol bytes */
 	data_length = buf[i++];
 	dprintf(5,"data_length: %d, len - 7: %d\n", data_length, len - 7);
-	if (data_length && data_length != (len - 7)) return 1;
+	if (data_length != (len - 7)) return 1;
 	/* Data */
 	my_crc = jbd_crc(&buf[2],data_length+2);
 	i += data_length;
 	/* CRC */
 	pkt_crc = _getshort(&buf[i]);
 	dprintf(5,"my_crc: %x, pkt_crc: %x\n", my_crc, pkt_crc);
-	if (my_crc != pkt_crc) return 1;
+	if (my_crc != pkt_crc) {
+		dprintf(1,"CRC ERROR: my_crc: %x, pkt_crc: %x\n", my_crc, pkt_crc);
+		bindump("data",buf,len);
+		return 1;
+	}
 	i += 2;
 	/* Stop bit */
 	dprintf(5,"stop bit: %x\n", buf[i]);
@@ -279,6 +283,7 @@ int jbd_rw(jbd_session_t *s, uint8_t action, uint8_t reg, uint8_t *data, int dat
 		dprintf(5,"writing...\n");
 		bytes = s->tp->write(s->tp_handle,cmd,cmdlen);
 		dprintf(5,"bytes: %d\n", bytes);
+		memset(data,0,datasz);
 		bytes = s->tp->read(s->tp_handle,buf,sizeof(buf));
 		dprintf(5,"bytes: %d\n", bytes);
 		if (bytes < 0) return -1;
