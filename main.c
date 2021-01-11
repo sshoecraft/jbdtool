@@ -650,12 +650,6 @@ int main(int argc, char **argv) {
 	if (!cp) return 1;
 
 	/* Init the pack */
-	if (transport) {
-		if (strcmp(transport,"can_ip") == 0 && !opts) {
-			printf("error: transport can_ip requires opts to be set (remote interface)\n");
-			return 1;
-		}
-	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	if (outfile) {
