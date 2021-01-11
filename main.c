@@ -520,30 +520,25 @@ void usage() {
 	printf("  -h		this output\n");
 	printf("  -f <filename>	input filename for read/write.\n");
 	printf("  -o <filename>	output filename\n");
-	printf("  -b <mac addr>	bluetooth mac addr\n");
-	printf("  -i <IP addr>	ip addr\n");
-	printf("  -n <CAN interface> CAN bus interface\n");
-	printf("  -s <serial dev> Serial bus device\n");
-	printf("  -e <speed>	CAN/Serial speed\n");
+	printf("  -t <transport:target> transport & target\n");
+	printf("  -e <opts>	transport-specific opts\n");
 }
 
 int main(int argc, char **argv) {
-	int opt,bytes,action,pretty,all,i,speed;
-	char *transport,*target,*label,*filename,*outfile,*p;
+	int opt,bytes,action,pretty,all,i;
+	char *transport,*target,*label,*filename,*outfile,*p,*opts;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
 	mybmm_pack_t pack;
 	jbd_info_t info;
 	jbd_params_t *pp;
 	uint8_t data[128];
-	char opts[64];
 
 	action = pretty = outfmt = all = 0;
 	sepch = ',';
 	sepstr = ",";
-	transport = target = label = filename = outfile = 0;
-	speed=500000;
-	while ((opt=getopt(argc, argv, "+ab:cd:i:n:s:f:jJo:rwlh")) != -1) {
+	transport = target = label = filename = outfile = opts = 0;
+	while ((opt=getopt(argc, argv, "+acd:n:t:e:f:jJo:rwlh")) != -1) {
 		switch (opt) {
 		case 'a':
 			all = 1;
@@ -559,9 +554,6 @@ int main(int argc, char **argv) {
 			break;
 		case 'd':
 			debug=atoi(optarg);
-			break;
-		case 'e':
-			speed=atoi(optarg);
 			break;
                 case 'i':
 			transport="ip";
@@ -582,12 +574,21 @@ int main(int argc, char **argv) {
 			outfile = optarg;
 			break;
                 case 'n':
-			transport="can";
-			target=optarg;
+			transport = optarg;
 			break;
-		case 's':
-			transport="serial";
-			target=optarg;
+                case 't':
+			transport = optarg;
+			target = strchr(transport,':');
+			if (!target) {
+				printf("error: format is transport:target\n");
+				usage();
+				return 1;
+			}
+			*target = 0;
+			target++;
+			break;
+		case 'e':
+			opts = optarg;
 			break;
 #if 1
                 case 'r':
@@ -649,8 +650,12 @@ int main(int argc, char **argv) {
 	if (!cp) return 1;
 
 	/* Init the pack */
-	opts[0] = 0;
-	if (transport && (strcmp(transport,"can")==0 || strcmp(transport,"serial")==0)) sprintf(opts,"%d",speed);
+	if (transport) {
+		if (strcmp(transport,"can_ip") == 0 && !opts) {
+			printf("error: transport can_ip requires opts to be set (remote interface)\n");
+			return 1;
+		}
+	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	if (outfile) {
