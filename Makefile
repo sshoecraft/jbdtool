@@ -5,12 +5,11 @@ MODULES=$(shell cat $(MYBMM_SRC)/Makefile | grep ^MODULES | awk -F= '{ print $$2
 SRCS=main.c module.c jbd.c parson.c list.c utils.c $(MODULES)
 OBJS=$(SRCS:.c=.o)
 CFLAGS=-DJBDTOOL -I$(MYBMM_SRC)
-#CFLAGS+=-Wall -O2 -pipe
-CFLAGS+=-Wall -g -DDEBUG
+CFLAGS+=-Wall -O2 -pipe
+#CFLAGS+=-Wall -g -DDEBUG
 LIBS+=-ldl -lgattlib -lglib-2.0 -lpthread
 LDFLAGS+=-rdynamic
 
-#vpath %.h $(MYBMM_SRC)
 vpath %.c $(MYBMM_SRC)
 
 .PHONY: all
