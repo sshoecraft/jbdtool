@@ -1,0 +1,22 @@
+#!/bin/bash -x
+test -z "$1" && exit 1
+MYBMM_SRC="$(readlink -f $1)"
+shift
+TRANSPORTS="$*"
+test -z "$TRANSPORTS" && exit 1
+tmpdir=/tmp/gp.jbdtool
+rm -rf $tmpdir; mkdir $tmpdir
+cd ..
+cp -r jbdtool $tmpdir || exit 1
+cd $tmpdir/jbdtool || exit 1
+for f in module.c jbd.c parson.c list.c utils.c $TRANSPORTS
+do
+	cp -v $MYBMM_SRC/$f .
+done
+cp -v $MYBMM_SRC/*.h .
+sed -i -e '/^MYBMM_SRC=/d' -e "/^TRANSPORTS=/cTRANSPORTS=$TRANSPORTS" -e '/^vpath /d' Makefile
+make clean
+git add -A .
+git commit -m refresh
+git push
+exit 0

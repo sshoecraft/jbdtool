@@ -56,9 +56,11 @@ enum JBD_PARM_DT {
 #define JBD_FUNC_SWITCH 	0x01
 #define JBD_FUNC_SCRL		0x02
 #define JBD_FUNC_BALANCE_EN	0x04
-#define JBD_FUNC_LED_EN		0x08
-#define JBD_FUNC_LED_NUM	0x10
-#define JBD_FUNC_CHG_BALANCE	0x20
+#define JBD_FUNC_CHG_BALANCE	0x08
+#define JBD_FUNC_LED_EN		0x10
+#define JBD_FUNC_LED_NUM	0x20
+#define JBD_FUNC_RTC		0x40
+#define JBD_FUNC_EDV		0x80
 
 #define JBD_NTC1	0x01
 #define JBD_NTC2	0x02
@@ -136,11 +138,12 @@ struct jbd_params {
 	{ JBD_REG_BARCODE,"BarCode", JBD_PARM_DT_STR },
 	{ JBD_REG_GPSOFF,"GPS_VOL", JBD_PARM_DT_INT },
 	{ JBD_REG_GPSOFFTIME,"GPS_TIME", JBD_PARM_DT_INT },
-	{ JBD_REG_IVOLCAP95,"IVOLCAP95", JBD_PARM_DT_INT },
-	{ JBD_REG_IVOLCAP75,"IVOLCAP75", JBD_PARM_DT_INT },
-	{ JBD_REG_IVOLCAP50,"IVOLCAP50", JBD_PARM_DT_INT },
-	{ JBD_REG_IVOLCAP30,"IVOLCAP30", JBD_PARM_DT_INT },
-	{ JBD_REG_IVOLCAP10,"IVOLCAP10", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP90,"VoltageCap90", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP70,"VoltageCap70", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP50,"VoltageCap50", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP30,"VoltageCap30", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP10,"VoltageCap10", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP100,"VoltageCap100", JBD_PARM_DT_INT },
 	{ 0,0,0 }
 };
 typedef struct jbd_params jbd_params_t;
@@ -265,9 +268,11 @@ void disp(char *label, int dt, ...) {
 		if (i & JBD_FUNC_SWITCH) _addstr(str,"Switch");
 		if (i & JBD_FUNC_SCRL)  _addstr(str,"SCRL");
 		if (i & JBD_FUNC_BALANCE_EN) _addstr(str,"BALANCE_EN");
+		if (i & JBD_FUNC_CHG_BALANCE) _addstr(str,"CHG_BALANCE");
 		if (i & JBD_FUNC_LED_EN) _addstr(str,"LED_EN");
 		if (i & JBD_FUNC_LED_NUM) _addstr(str,"LED_NUM");
-		if (i & JBD_FUNC_CHG_BALANCE) _addstr(str,"CHG_BALANCE");
+		if (i & JBD_FUNC_RTC) _addstr(str,"RTC");
+		if (i & JBD_FUNC_EDV) _addstr(str,"EDV");
 		switch(outfmt) {
 		case 2:
 			sprintf(temp,"[ %s ]",str);
@@ -358,9 +363,9 @@ void display_info(jbd_info_t *info) {
 	dfloat("Voltage","%.3f",info->voltage);
 	dfloat("Current","%.3f",info->current);
 	dfloat("DesignCapacity","%.3f",info->fullcap);
-	dfloat("CycleCapacity","%.3f",info->capacity);
-	_dint("CycleCount",info->cycles);
+	dfloat("RemainingCapacity","%.3f",info->capacity);
 	_dint("PercentCapacity",info->pctcap);
+	_dint("CycleCount",info->cycles);
 	_dint("Probes",info->probes);
 	switch(outfmt) {
 	case 2:
@@ -405,11 +410,11 @@ void display_info(jbd_info_t *info) {
 		dstr("Cells","%s",temp);
                 break;
 	}
-	dfloat("cell_total","%.3f",info->cell_total);
-	dfloat("cell_min","%.3f",info->cell_min);
-	dfloat("cell_max","%.3f",info->cell_max);
-	dfloat("cell_diff","%.3f",info->cell_diff);
-	dfloat("cell_avg","%.3f",info->cell_avg);
+	dfloat("CellTotal","%.3f",info->cell_total);
+	dfloat("CellMin","%.3f",info->cell_min);
+	dfloat("CellMax","%.3f",info->cell_max);
+	dfloat("CellDiff","%.3f",info->cell_diff);
+	dfloat("CellAvg","%.3f",info->cell_avg);
 	_dstr("DeviceName",info->model);
 	_dstr("ManufactureDate",info->mfgdate);
 	dfloat("Version","%.1f",info->version);
@@ -525,7 +530,7 @@ void usage() {
 }
 
 int main(int argc, char **argv) {
-	int opt,bytes,action,pretty,all,i;
+	int opt,bytes,action,pretty,all,i,reg,dump;
 	char *transport,*target,*label,*filename,*outfile,*p,*opts;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
@@ -534,12 +539,15 @@ int main(int argc, char **argv) {
 	jbd_params_t *pp;
 	uint8_t data[128];
 
-	action = pretty = outfmt = all = 0;
+	action = pretty = outfmt = all = reg = dump = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
-	while ((opt=getopt(argc, argv, "+acd:n:t:e:f:jJo:rwlh")) != -1) {
+	while ((opt=getopt(argc, argv, "+acDd:n:t:e:f:R:jJo:rwlh")) != -1) {
 		switch (opt) {
+		case 'D':
+			dump = 1;
+			break;
 		case 'a':
 			all = 1;
 			break;
@@ -590,6 +598,13 @@ int main(int argc, char **argv) {
 		case 'e':
 			opts = optarg;
 			break;
+                case 'R':
+			action=JBDTOOL_ACTION_READ;
+			if (strstr(optarg,"0x") || strncmp(optarg,"x",1)==0)
+				reg = strtol(optarg,0,16);
+			else
+				reg = strtol(optarg,0,10);
+			break;
 #if 1
                 case 'r':
 			action=JBDTOOL_ACTION_READ;
@@ -629,7 +644,7 @@ int main(int argc, char **argv) {
         argv += optind;
         optind = 0;
 
-	if ((action == JBDTOOL_ACTION_READ || action == JBDTOOL_ACTION_WRITE) && !filename && !argc && !all) {
+	if ((action == JBDTOOL_ACTION_READ || action == JBDTOOL_ACTION_WRITE) && !filename && !argc && !all && !reg && !dump) {
 		printf("error: a filename or parameter name or all (a) must be specified.\n");
 		usage();
 		return 1;
@@ -668,6 +683,24 @@ int main(int argc, char **argv) {
 		root_value = json_value_init_object();
 		root_object = json_value_get_object(root_value);
 	}
+	if (dump) {
+//		char temp[16];
+
+		if (pack.open(pack.handle)) return 1;
+		if (jbd_eeprom_start(pack.handle)) return 1;
+		for(i=0x10; i < 0xFF; i++) {
+			bytes = jbd_rw(pack.handle, JBD_CMD_READ, i, data, sizeof(data));
+			dprintf(3,"bytes: %d\n", bytes);
+			if (bytes > 0) {
+//				sprintf(temp,"Register %02x\n", reg);
+//				pdisp(temp,JBD_PARM_DT_INT,data,bytes);
+				printf("%02x: %d\n", i, _getshort(data));
+			}
+		}
+		jbd_eeprom_end(pack.handle);
+		pack.close(pack.handle);
+		return 0;
+	}
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
@@ -678,6 +711,20 @@ int main(int argc, char **argv) {
 		if (strcmp(transport,"can")==0) {
 			printf("error: reading parameters not possible using CAN bus\n");
 			return 1;
+		}
+		if (reg) {
+			char temp[16];
+
+			if (pack.open(pack.handle)) return 1;
+			if (jbd_eeprom_start(pack.handle)) return 1;
+			bytes = jbd_rw(pack.handle, JBD_CMD_READ, reg, data, sizeof(data));
+			dprintf(3,"bytes: %d\n", bytes);
+			if (bytes > 0) {
+				sprintf(temp,"Register %02x\n", reg);
+				pdisp(temp,JBD_PARM_DT_INT,data,bytes);
+			}
+			jbd_eeprom_end(pack.handle);
+			pack.close(pack.handle);
 		}
 		if (filename) {
 			char line[128];

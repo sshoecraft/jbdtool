@@ -1,10 +1,9 @@
 
 JBD BMS linux-based utility
 
-requires MYBMM for the modules
+requires mybmm https://github.com/sshoecraft/mybmm.git for the modules; download that project then set MYBMM_SRC in the makefile
 
 requires gattlib https://github.com/labapart/gattlib to be installed for bluetooth
-
 
 Transports specified exactly as in mybmm.conf
 
@@ -14,30 +13,47 @@ jbdtool -t <transport:target,opt1[,optN]>
 For CAN:
 
 jbdtool -t can:<device>[,speed]
-example: jbdtool -t can:can0,500000
+
+example:
+
+	jbdtool -t can:can0,500000
 
 For Serial:
 
 jbdtool -t serial:<device>[,speed]
-example: jbdtool -t serial:/dev/ttyS0,9600
+
+example:
+
+	jbdtool -t serial:/dev/ttyS0,9600
 
 For Bluetooth:
 
 jbdtool -t bt:[mac addr][,desc]
-jbdtool -t bt:01:02:03:04:05,06
-jbdtool -t bt:01:02:03:04:05:06,ff01
+
+exmples:
+
+	jbdtool -t bt:01:02:03:04:05,06
+
+	jbdtool -t bt:01:02:03:04:05:06,ff01
 
 For IP/esplink:
 
 jbdtool -t ip:<ip addr>[,port]
-jbdtool -t ip:10.0.0.1,23
+
+example:
+
+	jbdtool -t ip:10.0.0.1,23
 
 for CANServer/Can-over-ip
 
 jbdtool -t can_ip:<ip addr>,[port],<interface>,[speed]
-jbdtool -t can_ip:10.0.0.1,3930,can0,500000
 
->>> CAN bus cannot read parameters
+example:
+
+	jbdtool -t can_ip:10.0.0.1,3930,can0,500000
+
+
+>>> CAN bus cannot read/write parameters
 
 
 to read all parameters using bluetooth:
