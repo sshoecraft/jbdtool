@@ -22,7 +22,8 @@ typedef struct mybmm_config mybmm_config_t;
 //#include "util.h"
 #include "parson.h"
 #include "mybmm.h"
-#include "jbd.h"
+#include "jbd.h"		/* For session info */
+#include "jbd_info.h"		/* For info struct */
 
 int debug = 0;
 

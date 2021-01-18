@@ -2,7 +2,7 @@
 PROG=jbdtool
 MYBMM_SRC=../mybmm
 TRANSPORTS=$(shell cat $(MYBMM_SRC)/Makefile | grep ^TRANSPORTS | awk -F= '{ print $$2 }')
-SRCS=main.c module.c jbd.c parson.c list.c utils.c $(TRANSPORTS)
+SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c $(TRANSPORTS)
 OBJS=$(SRCS:.c=.o)
 CFLAGS=-DJBDTOOL -I$(MYBMM_SRC)
 #CFLAGS+=-Wall -O2 -pipe
