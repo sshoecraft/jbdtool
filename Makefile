@@ -29,6 +29,11 @@ install: $(PROG)
 clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)
 
-.PHONY: gitpush
-gitpush:
-	./gitpush $(MYBMM_SRC) $(TRANSPORTS)
+push: clean
+	git add -A .
+	git commit -m refresh
+	git push
+
+pull: clean
+	git reset --hard
+	git pull
