@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 */
 
 #include <stdio.h>
+#include <string.h>
 #include "jbd_info.h"
 #include "debug.h"
 
