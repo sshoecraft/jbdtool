@@ -18,7 +18,7 @@ all: $(PROG)
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
-#$(OBJS): Makefile *.h
+include $(MYBMM_SRC)/Makefile.dep
 
 debug: $(PROG)
 	gdb ./$(PROG)
