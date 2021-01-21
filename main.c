@@ -40,6 +40,8 @@ char *trim(char *);
 
 extern mybmm_module_t ip_module;
 
+int dont_interpret = 0;
+
 enum JBD_PARM_DT {
 	JBD_PARM_DT_UNK,
 	JBD_PARM_DT_INT,		/* Std int/number */
@@ -52,6 +54,14 @@ enum JBD_PARM_DT {
 	JBD_PARM_DT_NTC,		/* ntc bits */
 	JBD_PARM_DT_B0,			/* byte 0 */
 	JBD_PARM_DT_B1,			/* byte 1 */
+	JBD_PARM_DT_DOUBLE,
+	JBD_PARM_DT_SCVAL,
+	JBD_PARM_DT_SCDELAY,
+	JBD_PARM_DT_DSGOC2,
+	JBD_PARM_DT_DSGOC2DELAY,
+	JBD_PARM_DT_HCOVPDELAY,
+	JBD_PARM_DT_HCUVPDELAY,
+	JBD_PARM_DT_DUMP,		/* short, ushort, hex */
 };
 
 #define JBD_FUNC_SWITCH 	0x01
@@ -63,14 +73,14 @@ enum JBD_PARM_DT {
 #define JBD_FUNC_RTC		0x40
 #define JBD_FUNC_EDV		0x80
 
-#define JBD_NTC1	0x01
-#define JBD_NTC2	0x02
-#define JBD_NTC3	0x04
-#define JBD_NTC4	0x08
-#define JBD_NTC5	0x10
-#define JBD_NTC6	0x20
-#define JBD_NTC7	0x40
-#define JBD_NTC8	0x80
+#define JBD_NTC1		0x01
+#define JBD_NTC2		0x02
+#define JBD_NTC3		0x04
+#define JBD_NTC4		0x08
+#define JBD_NTC5		0x10
+#define JBD_NTC6		0x20
+#define JBD_NTC7		0x40
+#define JBD_NTC8		0x80
 
 struct jbd_params {
 	uint8_t reg;
@@ -118,10 +128,14 @@ struct jbd_params {
 	{ JBD_REG_VOLCAP20,"VoltageCap20", JBD_PARM_DT_INT },
 	{ JBD_REG_HCOVP,"HardCellOverVoltage", JBD_PARM_DT_INT },
 	{ JBD_REG_HCUVP,"HardCellUnderVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_HCOC,"HardChgOverCurrent", JBD_PARM_DT_B0 },
-	{ JBD_REG_HCOC,"HardDsgOverCurrent", JBD_PARM_DT_B1 },
-	{ JBD_REG_HTRT,"HardTime", JBD_PARM_DT_B0 },
-	{ JBD_REG_HTRT,"SCReleaseTime",JBD_PARM_DT_B1 },
+	{ JBD_REG_HCOC,"DoubleOCSC", JBD_PARM_DT_DOUBLE },
+	{ JBD_REG_HCOC,"SCValue", JBD_PARM_DT_SCVAL },
+	{ JBD_REG_HCOC,"SCDelay", JBD_PARM_DT_SCDELAY },
+	{ JBD_REG_HCOC,"DSGOC2", JBD_PARM_DT_DSGOC2 },
+	{ JBD_REG_HCOC,"DSGOC2Delay", JBD_PARM_DT_DSGOC2DELAY },
+	{ JBD_REG_HTRT,"HCOVPDelay", JBD_PARM_DT_HCOVPDELAY },
+	{ JBD_REG_HTRT,"HCUVPDelay",JBD_PARM_DT_HCUVPDELAY },
+	{ JBD_REG_HTRT,"SCRelease",JBD_PARM_DT_B1 },
 	{ JBD_REG_CHGDELAY,"ChgUTDelay", JBD_PARM_DT_B0 },
 	{ JBD_REG_CHGDELAY,"ChgOTDelay", JBD_PARM_DT_B1 },
 	{ JBD_REG_DSGDELAY,"DsgUTDelay", JBD_PARM_DT_B0 },
@@ -165,7 +179,7 @@ struct jbd_params *_getp(char *label) {
 void dint(char *label, char *format, int val) {
 	char temp[128];
 
-	dprintf(3,"dint: label: %s, val: %d\n", label, val);
+	dprintf(3,"label: %s, val: %d\n", label, val);
 	switch(outfmt) {
 	case 2:
 		json_object_set_number(root_object, label, val);
@@ -183,6 +197,21 @@ void dint(char *label, char *format, int val) {
 	}
 }
 #define _dint(l,v) dint(l,"%d",v)
+
+void dbool(char *label, int val) {
+	dprintf(3,"label: %s, val: %d\n", label, val);
+	switch(outfmt) {
+	case 2:
+		json_object_set_boolean(root_object, label, val);
+		break;
+	case 1:
+		fprintf(outfp,"%s,%s\n",label,val ? "true" : "false");
+		break;
+	default:
+		fprintf(outfp,"%-25s %s\n",label,val ? "true" : "false");
+		break;
+	}
+}
 
 void dfloat(char *label, char *format, float val) {
 	char temp[128];
@@ -238,106 +267,43 @@ static inline void _addstr(char *str,char *newstr) {
 	dprintf(4,"str: %s\n", str);
 }
 
-void disp(char *label, int dt, ...) {
-	va_list ap;
+void _dump(char *label, short val) {
+	char str[64],temp[72];
 
-	dprintf(3,"label: %s, dt: %d\n", label, dt);
-
-	va_start(ap,dt);
-	switch(dt) {
+	dprintf(3,"label: %s, val: %d\n", label, val);
+	str[0] = 0;
+	sprintf(temp,"%d",val);
+	_addstr(str,temp);
+	sprintf(temp,"%d",(unsigned short)val);
+	_addstr(str,temp);
+	sprintf(temp,"%04x",(unsigned short)val);
+	_addstr(str,temp);
+	dprintf(3,"str: %s\n",str);
+	switch(outfmt) {
+	case 2:
+		sprintf(temp,"[ %s ]",str);
+		dprintf(2,"temp: %s\n", temp);
+		json_object_dotset_value(root_object, label, json_parse_string(temp));
+		break;
+	case 1:
+		printf("%s,%s\n",label,str);
+		break;
 	default:
-	case JBD_PARM_DT_INT:
-		_dint(label,va_arg(ap,int));
-		break;
-	case JBD_PARM_DT_FLOAT:
-		_dfloat(label,va_arg(ap,double));
-		break;
-	case JBD_PARM_DT_STR:
-		_dstr(label,va_arg(ap,char *));
-		break;
-	case JBD_PARM_DT_TEMP:
-		_dint(label,va_arg(ap,int));
-		break;
-	case JBD_PARM_DT_DATE:
-		_dint(label,va_arg(ap,int));
-		break;
-	case JBD_PARM_DT_FUNC:
-		_dint(label,va_arg(ap,int));
-#if 0
-		i = va_arg(ap,int);
-		str[0] = 0;
-		if (i & JBD_FUNC_SWITCH) _addstr(str,"Switch");
-		if (i & JBD_FUNC_SCRL)  _addstr(str,"SCRL");
-		if (i & JBD_FUNC_BALANCE_EN) _addstr(str,"BALANCE_EN");
-		if (i & JBD_FUNC_CHG_BALANCE) _addstr(str,"CHG_BALANCE");
-		if (i & JBD_FUNC_LED_EN) _addstr(str,"LED_EN");
-		if (i & JBD_FUNC_LED_NUM) _addstr(str,"LED_NUM");
-		if (i & JBD_FUNC_RTC) _addstr(str,"RTC");
-		if (i & JBD_FUNC_EDV) _addstr(str,"EDV");
-		switch(outfmt) {
-		case 2:
-			sprintf(temp,"[ %s ]",str);
-			dprintf(1,"temp: %s\n", temp);
-			json_object_dotset_value(root_object, label, json_parse_string(temp));
-			break;
-		case 1:
-			printf("%s,%s\n",label,str);
-			break;
-		default:
-			printf("%-25s %s\n",label,str);
-			break;
-		}
-#endif
-		break;
-	case JBD_PARM_DT_NTC:
-		_dint(label,va_arg(ap,int));
-#if 0
-		i = va_arg(ap,int);
-		str[0] = 0;
-		if (i & JBD_NTC1) _addstr(str,"NTC1");
-		if (i & JBD_NTC2) _addstr(str,"NTC2");
-		if (i & JBD_NTC3) _addstr(str,"NTC3");
-		if (i & JBD_NTC4) _addstr(str,"NTC4");
-		if (i & JBD_NTC5) _addstr(str,"NTC5");
-		if (i & JBD_NTC6) _addstr(str,"NTC6");
-		if (i & JBD_NTC7) _addstr(str,"NTC7");
-		if (i & JBD_NTC8) _addstr(str,"NTC8");
-		switch(outfmt) {
-		case 2:
-			sprintf(temp,"[ %s ]",str);
-			dprintf(2,"temp: %s\n", temp);
-			json_object_dotset_value(root_object, label, json_parse_string(temp));
-			break;
-		case 1:
-			printf("%s,%s\n",label,str);
-			break;
-		default:
-			printf("%-25s %s\n",label,str);
-			break;
-		}
-#endif
-		break;
-        case JBD_PARM_DT_B0:
-		_dint(label,va_arg(ap,int));
-		break;
-        case JBD_PARM_DT_B1:
-		_dint(label,va_arg(ap,int));
+		printf("%-25s %s\n",label,str);
 		break;
 	}
-#if 0
-        JBD_PARM_DT_PCT,                /* % */
-#endif
 }
 
 void pdisp(char *label, int dt, uint8_t *data, int len) {
+	char str[64],temp[72];
+	uint16_t val;
+
 	dprintf(3,"label: %s, dt: %d\n", label, dt);
 	switch(dt) {
 	case JBD_PARM_DT_INT:
 	case JBD_PARM_DT_TEMP:
 	case JBD_PARM_DT_DATE:
 	case JBD_PARM_DT_PCT:
-	case JBD_PARM_DT_FUNC:
-	case JBD_PARM_DT_NTC:
 		_dint(label,(int)_getshort(data));
 		break;
 	case JBD_PARM_DT_B0:
@@ -346,6 +312,64 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 	case JBD_PARM_DT_B1:
 		_dint(label,data[1]);
 		break;
+	case JBD_PARM_DT_FUNC:
+		if (dont_interpret) {
+			_dint(label,(int)_getshort(data));
+		} else {
+			val = _getshort(data);
+			str[0] = 0;
+			if (val & JBD_FUNC_SWITCH) _addstr(str,"Switch");
+			if (val & JBD_FUNC_SCRL)  _addstr(str,"SCRL");
+			if (val & JBD_FUNC_BALANCE_EN) _addstr(str,"BALANCE_EN");
+			if (val & JBD_FUNC_CHG_BALANCE) _addstr(str,"CHG_BALANCE");
+			if (val & JBD_FUNC_LED_EN) _addstr(str,"LED_EN");
+			if (val & JBD_FUNC_LED_NUM) _addstr(str,"LED_NUM");
+			if (val & JBD_FUNC_RTC) _addstr(str,"RTC");
+			if (val & JBD_FUNC_EDV) _addstr(str,"EDV");
+			switch(outfmt) {
+			case 2:
+				sprintf(temp,"[ %s ]",str);
+				dprintf(1,"temp: %s\n", temp);
+				json_object_dotset_value(root_object, label, json_parse_string(temp));
+				break;
+			case 1:
+				printf("%s,%s\n",label,str);
+				break;
+			default:
+				printf("%-25s %s\n",label,str);
+				break;
+			}
+		}	
+		break;
+	case JBD_PARM_DT_NTC:
+		if (dont_interpret) {
+			_dint(label,(int)_getshort(data));
+		} else {
+			val = _getshort(data);
+			str[0] = 0;
+			if (val & JBD_NTC1) _addstr(str,"NTC1");
+			if (val & JBD_NTC2) _addstr(str,"NTC2");
+			if (val & JBD_NTC3) _addstr(str,"NTC3");
+			if (val & JBD_NTC4) _addstr(str,"NTC4");
+			if (val & JBD_NTC5) _addstr(str,"NTC5");
+			if (val & JBD_NTC6) _addstr(str,"NTC6");
+			if (val & JBD_NTC7) _addstr(str,"NTC7");
+			if (val & JBD_NTC8) _addstr(str,"NTC8");
+			switch(outfmt) {
+			case 2:
+				sprintf(temp,"[ %s ]",str);
+				dprintf(2,"temp: %s\n", temp);
+				json_object_dotset_value(root_object, label, json_parse_string(temp));
+				break;
+			case 1:
+				printf("%s,%s\n",label,str);
+				break;
+			default:
+				printf("%-25s %s\n",label,str);
+				break;
+			}
+		}
+		break;
 	case JBD_PARM_DT_FLOAT:
 		_dfloat(label,(float)_getshort(data));
 		break;
@@ -353,6 +377,85 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 		data[len] = 0;
 		trim((char *)data);
 		_dstr(label,(char *)data);
+		break;
+	case JBD_PARM_DT_DUMP:
+		_dump(label,_getshort(data));
+		break;
+	case JBD_PARM_DT_DOUBLE:
+		dbool(label,((data[0] & 0x80) != 0));
+		break;
+	case JBD_PARM_DT_DSGOC2:
+		if (dont_interpret) {
+			_dint(label,data[1] & 0x0f);
+		} else {
+			int vals[] = { 8,11,14,17,19,22,25,28,31,33,36,39,42,44,47,50 };
+			int i = data[1] & 0x0f;
+			dprintf(1,"data[1]: %02x\n", data[1]);
+
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
+		break;
+	case JBD_PARM_DT_DSGOC2DELAY:
+		if (dont_interpret) {
+			_dint(label,(data[1] >> 4) & 0x07);
+		} else {
+			int vals[] = { 8,20,40,80,160,320,640,1280 };
+			int i = (data[1] >> 4) & 0x07;
+			dprintf(1,"data[1]: %02x\n", data[1]);
+
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
+		break;
+	case JBD_PARM_DT_SCVAL:
+		if (dont_interpret) {
+			_dint(label,data[0] & 0x07);
+		} else {
+			int vals[] = { 22,33,44,56,67,78,89,100 };
+			int i = data[0] & 0x07;
+			dprintf(1,"data[0]: %02x\n", data[0]);
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
+		break;
+	case JBD_PARM_DT_SCDELAY:
+		if (dont_interpret) {
+			_dint(label,(data[0] >> 3) & 0x03);
+		} else {
+			int vals[] = {  70,100,200,400 };
+			int i = (data[0] >> 3) & 0x03;
+			dprintf(1,"data[0]: %02x\n", data[0]);
+
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
+		break;
+	case JBD_PARM_DT_HCOVPDELAY:
+		if (dont_interpret) {
+			_dint(label,(data[0] >> 4) & 0x03);
+		} else {
+			int vals[] = {  1,2,4,8 };
+			int i = (data[0] >> 4) & 0x03;
+			dprintf(1,"data[0]: %02x\n", data[0]);
+
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
+        
+
+		break;
+	case JBD_PARM_DT_HCUVPDELAY:
+		if (dont_interpret) {
+			_dint(label,(data[0] >> 6) & 0x03);
+		} else {
+			int vals[] = {  1,4,8,16 };
+			int i = (data[0] >> 6) & 0x03;
+			dprintf(1,"data[0]: %02x\n", data[0]);
+
+			dprintf(1,"i: %d\n", i);
+			_dint(label,vals[i]);
+		}
 		break;
 	}
 }
@@ -419,14 +522,18 @@ void display_info(jbd_info_t *info) {
 	_dstr("DeviceName",info->model);
 	_dstr("ManufactureDate",info->mfgdate);
 	dfloat("Version","%.1f",info->version);
-	temp[0] = 0;
-	p = temp;
-	if (info->fetstate & JBD_MOS_CHARGE) p += sprintf(p,"Charge");
-	if (info->fetstate & JBD_MOS_DISCHARGE) {
-		if (info->fetstate & JBD_MOS_CHARGE) p += sprintf(p,sepstr);
-		p += sprintf(p,"Discharge");
+	if (dont_interpret) {
+		_dint("FET",info->fetstate);
+	} else {
+		temp[0] = 0;
+		p = temp;
+		if (info->fetstate & JBD_MOS_CHARGE) p += sprintf(p,"Charge");
+		if (info->fetstate & JBD_MOS_DISCHARGE) {
+			if (info->fetstate & JBD_MOS_CHARGE) p += sprintf(p,sepstr);
+			p += sprintf(p,"Discharge");
+		}
+		dstr("FET","%s",temp);
 	}
-	dstr("FET","%s",temp);
 #if 0
         unsigned long balancebits;
         /* the protection sign */
@@ -528,6 +635,7 @@ void usage() {
 	printf("  -o <filename>	output filename\n");
 	printf("  -t <transport:target> transport & target\n");
 	printf("  -e <opts>	transport-specific opts\n");
+	printf("  -n 		numbers only; dont interpret\n");
 }
 
 int main(int argc, char **argv) {
@@ -544,7 +652,7 @@ int main(int argc, char **argv) {
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
-	while ((opt=getopt(argc, argv, "+acDd:n:t:e:f:R:jJo:rwlh")) != -1) {
+	while ((opt=getopt(argc, argv, "+acDd:nt:e:f:R:jJo:rwlh")) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -583,7 +691,7 @@ int main(int argc, char **argv) {
 			outfile = optarg;
 			break;
                 case 'n':
-			transport = optarg;
+			dont_interpret = 1;
 			break;
                 case 't':
 			transport = optarg;
@@ -722,7 +830,7 @@ int main(int argc, char **argv) {
 			dprintf(3,"bytes: %d\n", bytes);
 			if (bytes > 0) {
 				sprintf(temp,"Register %02x\n", reg);
-				pdisp(temp,JBD_PARM_DT_INT,data,bytes);
+				pdisp(temp,JBD_PARM_DT_DUMP,data,bytes);
 			}
 			jbd_eeprom_end(pack.handle);
 			pack.close(pack.handle);
