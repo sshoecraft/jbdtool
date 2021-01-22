@@ -1,13 +1,28 @@
 
+BLUETOOTH=no
+MQTT=no
+
 PROG=jbdtool
 MYBMM_SRC=../mybmm
 TRANSPORTS=$(shell cat $(MYBMM_SRC)/Makefile | grep ^TRANSPORTS | awk -F= '{ print $$2 }')
-SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c $(TRANSPORTS)
+ifneq ($(BLUETOOTH),yes)
+_TMPVAR := $(TRANSPORTS)
+TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
+endif
+SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c log.c $(TRANSPORTS)
 OBJS=$(SRCS:.c=.o)
 CFLAGS=-DJBDTOOL -I$(MYBMM_SRC)
 #CFLAGS+=-Wall -O2 -pipe
-CFLAGS+=-Wall -g -DDEBUG
-LIBS+=-ldl -lgattlib -lglib-2.0 -lpthread
+CFLAGS+=-Wall -g -DDEBUG=1
+LIBS=-ldl
+ifeq ($(MQTT),yes)
+CFLAGS+=-DMQTT
+LIBS+=-lpaho-mqtt3c
+endif
+ifeq ($(BLUETOOTH),yes)
+CFLAGS+=-DBLUETOOTH
+LIBS+=-lgattlib -lglib-2.0 -lpthread
+endif
 LDFLAGS+=-rdynamic
 
 vpath %.c $(MYBMM_SRC)
@@ -17,6 +32,8 @@ all: $(PROG)
 
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
+
+$(OBJS): Makefile
 
 include $(MYBMM_SRC)/Makefile.dep
 

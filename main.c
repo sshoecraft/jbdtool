@@ -24,8 +24,11 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mybmm.h"
 #include "jbd.h"		/* For session info */
 #include "jbd_info.h"		/* For info struct */
+#ifdef MQTT
+#include "MQTTClient.h"
+#endif
 
-int debug = 0;
+int debug = 1;
 
 int outfmt = 0;
 FILE *outfp;
@@ -617,8 +620,46 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
 }
 
+#ifdef MQTT
+static char address[64];
+static char clientid[64];
+static char topic[64];
+#define QOS 1
+#define TIMEOUT     10000L
+
+int mqtt_send(char *message) {
+	MQTTClient client;
+	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+	MQTTClient_message pubmsg = MQTTClient_message_initializer;
+	MQTTClient_deliveryToken token;
+	int rc;
+
+	MQTTClient_create(&client, address, clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
+	conn_opts.keepAliveInterval = 20;
+	conn_opts.cleansession = 1;
+	if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS) {
+		printf("Failed to connect, return code %d\n", rc);
+		exit(-1);
+	}
+	pubmsg.payload = message;
+	pubmsg.payloadlen = strlen(message);
+	pubmsg.qos = QOS;
+	pubmsg.retained = 0;
+	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
+//	printf("Waiting for up to %d seconds for publication of %s\n" "on topic %s for client with ClientID: %s\n", (int)(TIMEOUT/1000), PAYLOAD, TOPIC, CLIENTID);
+	rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
+	printf("Message with delivery token %d delivered\n", token);
+	MQTTClient_disconnect(client, 10000);
+	MQTTClient_destroy(&client);
+	return rc;
+}
+#define MQTT_GETOPT "m:i:b"
+#else
+#define MQTT_GETOPT ""
+#endif
+
 void usage() {
-	printf("usage: jbdtool [-acjJrwlh] [-f filename] [-b <bluetooth mac addr | -i <ip addr>] [-o output file]\n");
+	printf("usage: jbdtool [-abcjJrwlh] [-f filename] [-t <module:target> [-o output file]\n");
 	printf("arguments:\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
@@ -636,6 +677,11 @@ void usage() {
 	printf("  -t <transport:target> transport & target\n");
 	printf("  -e <opts>	transport-specific opts\n");
 	printf("  -n 		numbers only; dont interpret\n");
+#ifdef MQTT
+	printf("  -m 		Send results to MQTT broker\n");
+	printf("  -i 		Update interval\n");
+	printf("  -b 		Run in background\n");
+#endif
 }
 
 int main(int argc, char **argv) {
@@ -647,22 +693,26 @@ int main(int argc, char **argv) {
 	jbd_info_t info;
 	jbd_params_t *pp;
 	uint8_t data[128];
+#ifdef MQTT
+	int interval,back;
+	char *mqtt;
+#endif
 
 	action = pretty = outfmt = all = reg = dump = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
-	while ((opt=getopt(argc, argv, "+acDd:nt:e:f:R:jJo:rwlh")) != -1) {
+#ifdef MQTT
+	interval = back = 0;
+	mqtt = 0;
+#endif
+	while ((opt=getopt(argc, argv, "+acDd:nt:e:f:R:jJo:rwlh"MQTT_GETOPT)) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
 			break;
 		case 'a':
 			all = 1;
-			break;
-                case 'b':
-			transport="bt";
-			target=optarg;
 			break;
 		case 'c':
 			outfmt=1;
@@ -672,10 +722,17 @@ int main(int argc, char **argv) {
 		case 'd':
 			debug=atoi(optarg);
 			break;
-                case 'i':
-			transport="ip";
-			target=optarg;
+#ifdef MQTT
+		case 'b':
+			back = 1;
 			break;
+		case 'm':
+			mqtt = optarg;
+			break;
+                case 'i':
+			interval=atoi(optarg);
+			break;
+#endif
                 case 'f':
 			filename = optarg;
 			break;
@@ -749,6 +806,19 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
+#ifdef MQTT
+	/* If MQTT, output is compact JSON */
+	if (mqtt) {
+		strcpy(address,strele(0,",",mqtt));
+		strcpy(clientid,strele(1,",",mqtt));
+		strcpy(topic,strele(2,",",mqtt));
+		dprintf(1,"address: %s, clientid: %s, topic: %s\n", address, clientid, topic);
+		action = JBDTOOL_ACTION_INFO;
+		outfmt = 2;
+		pretty = 0;
+	}
+#endif
+
         argc -= optind;
         argv += optind;
         optind = 0;
@@ -810,6 +880,9 @@ int main(int argc, char **argv) {
 		pack.close(pack.handle);
 		return 0;
 	}
+#ifdef MQTT
+    while(interval) {
+#endif
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
@@ -1055,10 +1128,18 @@ int main(int argc, char **argv) {
 	    		serialized_string = json_serialize_to_string_pretty(root_value);
 		else
     			serialized_string = json_serialize_to_string(root_value);
+#ifdef MQTT
+		if (mqtt) mqtt_send(serialized_string);
+		else
+#endif
 		fprintf(outfp,"%s",serialized_string);
 		json_free_serialized_string(serialized_string);
 		json_value_free(root_value);
 	}
+#ifdef MQTT
+	sleep(interval);
+    }
+#endif
 	fclose(outfp);
 
 	return 0;

@@ -3,7 +3,13 @@ JBD BMS linux-based utility
 
 requires mybmm https://github.com/sshoecraft/mybmm.git for the modules; download that project then set MYBMM_SRC in the makefile
 
-requires gattlib https://github.com/labapart/gattlib to be installed for bluetooth
+Bluetooth support requires gattlib https://github.com/labapart/gattlib
+Then edit the Makefile and set BLUETOOTH=yes
+
+MQTT support requires mosquitto - install from mosquitto.org
+Then edit the Makefile and set MQTT=yes
+
+just edit the Makefile and 
 
 Transports specified exactly as in mybmm.conf
 
