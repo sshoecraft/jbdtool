@@ -9,7 +9,7 @@ ifneq ($(BLUETOOTH),yes)
 _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
-SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c log.c $(TRANSPORTS)
+SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c $(TRANSPORTS)
 OBJS=$(SRCS:.c=.o)
 CFLAGS=-DJBDTOOL -I$(MYBMM_SRC)
 #CFLAGS+=-Wall -O2 -pipe
