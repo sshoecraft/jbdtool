@@ -168,6 +168,7 @@ static int jbd_std_get_info(jbd_session_t *s, jbd_info_t *info) {
 
 	/* 1-16 */
 	info->balancebits = _getshort(&data[12]);
+	info->balancebits |= _getshort(&data[14]) << 16;
 #ifdef DEBUG
 	{
 		char bits[40];
