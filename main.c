@@ -881,7 +881,7 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 #ifdef MQTT
-    while(interval) {
+    do {
 #endif
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
@@ -1138,7 +1138,7 @@ int main(int argc, char **argv) {
 	}
 #ifdef MQTT
 	sleep(interval);
-    }
+    } while(interval);
 #endif
 	fclose(outfp);
 
