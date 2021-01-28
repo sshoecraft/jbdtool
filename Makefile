@@ -1,6 +1,7 @@
 
-BLUETOOTH=no
+BLUETOOTH=yes
 MQTT=yes
+PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
 
 PROG=jbdtool
 MYBMM_SRC=../mybmm
@@ -17,13 +18,19 @@ CFLAGS+=-Wall -g -DDEBUG=1
 LIBS=-ldl
 ifeq ($(MQTT),yes)
 CFLAGS+=-DMQTT
-#LIBS+=-lpaho-mqtt3c
+ifeq ($(PI),yes)
 LIBS+=./libpaho-mqtt3c.a
+else
+LIBS+=-lpaho-mqtt3c
+endif
 endif
 ifeq ($(BLUETOOTH),yes)
 CFLAGS+=-DBLUETOOTH
-#LIBS+=-lgattlib -lglib-2.0
+ifeq ($(PI),yes)
 LIBS+=./libgattlib.a -lglib-2.0
+else
+LIBS+=-lgattlib -lglib-2.0
+endif
 endif
 LIBS+=-lpthread
 LDFLAGS+=-rdynamic
