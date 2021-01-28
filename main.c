@@ -28,7 +28,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "MQTTClient.h"
 #endif
 
-int debug = 1;
+int debug = 0;
 
 int outfmt = 0;
 FILE *outfp;
