@@ -678,7 +678,7 @@ void usage() {
 	printf("  -e <opts>	transport-specific opts\n");
 	printf("  -n 		numbers only; dont interpret\n");
 #ifdef MQTT
-	printf("  -m 		Send results to MQTT broker\n");
+	printf("  -m <host:clientid:topic> Send results to MQTT broker\n");
 	printf("  -i 		Update interval\n");
 	printf("  -b 		Run in background\n");
 #endif
