@@ -25,7 +25,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "jbd.h"		/* For session info */
 #include "jbd_info.h"		/* For info struct */
 #ifdef MQTT
-#include "MQTTClient.h"
+#include "mqtt.h"
 #endif
 
 int debug = 0;
@@ -620,6 +620,7 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
 }
 
+#if 0
 #ifdef MQTT
 static char address[64];
 static char clientid[64];
@@ -657,6 +658,7 @@ int mqtt_send(char *message) {
 #else
 #define MQTT_GETOPT ""
 #endif
+#endif
 
 void usage() {
 	printf("usage: jbdtool [-abcjJrwlh] [-f filename] [-t <module:target> [-o output file]\n");
@@ -678,11 +680,16 @@ void usage() {
 	printf("  -e <opts>	transport-specific opts\n");
 	printf("  -n 		numbers only; dont interpret\n");
 #ifdef MQTT
-	printf("  -m <host:clientid:topic> Send results to MQTT broker\n");
+	printf("  -m <host:clientid:topic[:user[:pass]]> Send results to MQTT broker\n");
 	printf("  -i 		Update interval\n");
-	printf("  -b 		Run in background\n");
 #endif
 }
+
+#ifdef MQTT
+#define MQTT_GETOPT "m:i:"
+#else
+#define MQTT_GETOPT ""
+#endif
 
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
@@ -692,9 +699,10 @@ int main(int argc, char **argv) {
 	mybmm_pack_t pack;
 	jbd_info_t info;
 	jbd_params_t *pp;
+	char clientid[32];
 	uint8_t data[128];
 #ifdef MQTT
-	int interval,back;
+	int interval;
 	char *mqtt;
 #endif
 
@@ -703,7 +711,7 @@ int main(int argc, char **argv) {
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
 #ifdef MQTT
-	interval = back = 0;
+	interval = 0;
 	mqtt = 0;
 #endif
 	while ((opt=getopt(argc, argv, "+acDd:nt:e:f:R:jJo:rwlh"MQTT_GETOPT)) != -1) {
@@ -723,9 +731,6 @@ int main(int argc, char **argv) {
 			debug=atoi(optarg);
 			break;
 #ifdef MQTT
-		case 'b':
-			back = 1;
-			break;
 		case 'm':
 			mqtt = optarg;
 			break;
@@ -771,25 +776,12 @@ int main(int argc, char **argv) {
 			else
 				reg = strtol(optarg,0,10);
 			break;
-#if 1
                 case 'r':
 			action=JBDTOOL_ACTION_READ;
 			break;
 		case 'w':
 			action=JBDTOOL_ACTION_WRITE;
 			break;
-#else
-                case 'r':
-			action=1;
-			if (optarg[0] == '@') filename = optarg+1;
-			else label=optarg;
-			break;
-                case 'w':
-			action=2;
-			if (optarg[0] == '@') filename = optarg+1;
-			else label=optarg;
-			break;
-#endif
                 case 'l':
 			for(pp = params; pp->label; pp++) printf("%s\n", pp->label);
 			return 0;
@@ -806,18 +798,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-#ifdef MQTT
-	/* If MQTT, output is compact JSON */
-	if (mqtt) {
-		strcpy(address,strele(0,",",mqtt));
-		strcpy(clientid,strele(1,",",mqtt));
-		strcpy(topic,strele(2,",",mqtt));
-		dprintf(1,"address: %s, clientid: %s, topic: %s\n", address, clientid, topic);
-		action = JBDTOOL_ACTION_INFO;
-		outfmt = 2;
-		pretty = 0;
-	}
-#endif
+        log_open("mybmm",0,LOG_DEBUG|LOG_INFO|LOG_WARNING|LOG_ERROR|LOG_SYSERR);
 
         argc -= optind;
         argv += optind;
@@ -844,7 +825,37 @@ int main(int argc, char **argv) {
 	if (!cp) return 1;
 
 	/* Init the pack */
+	p = strchr(target,',');
+	if (p) {
+		*p++ = 0;
+		if (!opts) opts = p;
+	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
+
+	/* If MQTT, output is compact JSON */
+	dprintf(1,"mqtt: %p\n", mqtt);
+	if (mqtt) {
+		void *s;
+		action = JBDTOOL_ACTION_INFO;
+		outfmt = 2;
+		strcpy(conf->mqtt_broker,strele(0,":",mqtt));
+		strcpy(clientid,strele(1,":",mqtt));
+		strcpy(conf->mqtt_topic,strele(2,":",mqtt));
+		strcpy(conf->mqtt_username,strele(3,":",mqtt));
+		strcpy(conf->mqtt_password,strele(4,":",mqtt));
+		dprintf(1,"broker: %s, clientid: %s, topic: %s, user: %s, pass: %s\n", conf->mqtt_broker, clientid, conf->mqtt_topic, conf->mqtt_username, conf->mqtt_password);
+		if (strlen(conf->mqtt_broker) ==0 || strlen(clientid) == 0 || strlen(conf->mqtt_topic)==0) {
+			printf("error: mqtt format is: host:clientid:topic\n");
+			return 1;
+		}
+
+		/* Try to connect */
+		s = mqtt_new(conf->mqtt_broker,clientid,conf->mqtt_topic);
+		if (!s) return 1;
+		if (mqtt_connect(s,20,conf->mqtt_username,conf->mqtt_password)) return 1;
+		mqtt_disconnect(s,10);
+		mqtt_destroy(s);
+	}
 
 	if (outfile) {
 		dprintf(1,"outfile: %s\n", outfile);
@@ -1129,17 +1140,18 @@ int main(int argc, char **argv) {
 		else
     			serialized_string = json_serialize_to_string(root_value);
 #ifdef MQTT
-		if (mqtt) mqtt_send(serialized_string);
+		if (mqtt) mqtt_fullsend(conf->mqtt_broker,clientid,serialized_string,conf->mqtt_topic,conf->mqtt_username,conf->mqtt_password);
+
 		else
 #endif
 		fprintf(outfp,"%s",serialized_string);
 		json_free_serialized_string(serialized_string);
-		json_value_free(root_value);
 	}
 #ifdef MQTT
 	sleep(interval);
     } while(interval);
 #endif
+	json_value_free(root_value);
 	fclose(outfp);
 
 	return 0;

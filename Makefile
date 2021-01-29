@@ -1,4 +1,5 @@
 
+DEBUG=yes
 BLUETOOTH=yes
 MQTT=yes
 PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
@@ -10,16 +11,20 @@ ifneq ($(BLUETOOTH),yes)
 _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
-SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c $(TRANSPORTS)
-OBJS=$(SRCS:.c=.o)
+SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c cfg.c daemon.c $(TRANSPORTS)
 CFLAGS=-I$(MYBMM_SRC)
-#CFLAGS+=-Wall -O2 -pipe
+ifeq ($(DEBUG),yes)
 CFLAGS+=-Wall -g -DDEBUG=1
+else
+CFLAGS+=-Wall -O2 -pipe
+endif
 LIBS=-ldl
 ifeq ($(MQTT),yes)
+SRCS+=mqtt.c
 CFLAGS+=-DMQTT
 ifeq ($(PI),yes)
 LIBS+=./libpaho-mqtt3c.a
+DEPS=./libpaho-mqtt3c.a
 else
 LIBS+=-lpaho-mqtt3c
 endif
@@ -28,12 +33,14 @@ ifeq ($(BLUETOOTH),yes)
 CFLAGS+=-DBLUETOOTH
 ifeq ($(PI),yes)
 LIBS+=./libgattlib.a -lglib-2.0
+DEPS=./libgattlib.a
 else
 LIBS+=-lgattlib -lglib-2.0
 endif
 endif
 LIBS+=-lpthread
 LDFLAGS+=-rdynamic
+OBJS=$(SRCS:.c=.o)
 
 vpath %.c $(MYBMM_SRC)
 

@@ -13,12 +13,12 @@ just edit the Makefile and
 
 Transports specified exactly as in mybmm.conf
 
-jbdtool -t <transport:target,opt1[,optN]>
+jbdtool -t transport:target,opt1[,optN]
 
 
 For CAN:
 
-jbdtool -t can:<device>[,speed]
+jbdtool -t can:device[,speed]
 
 example:
 
@@ -26,7 +26,7 @@ example:
 
 For Serial:
 
-jbdtool -t serial:<device>[,speed]
+jbdtool -t serial:device[,speed]
 
 example:
 
@@ -34,7 +34,7 @@ example:
 
 For Bluetooth:
 
-jbdtool -t bt:[mac addr][,desc]
+jbdtool -t bt:mac addr [-e desc]
 
 exmples:
 
@@ -44,7 +44,7 @@ exmples:
 
 For IP/esplink:
 
-jbdtool -t ip:<ip addr>[,port]
+jbdtool -t ip:address[,port]
 
 example:
 
@@ -52,7 +52,7 @@ example:
 
 for CANServer/Can-over-ip
 
-jbdtool -t can_ip:<ip addr>,[port],<interface>,[speed]
+jbdtool -t can_ip:address,[port],interface on server,[speed]
 
 example:
 
