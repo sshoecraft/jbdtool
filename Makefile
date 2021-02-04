@@ -12,7 +12,7 @@ _TMPVAR := $(TRANSPORTS)
 TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
 endif
 SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c cfg.c daemon.c $(TRANSPORTS)
-CFLAGS=-I$(MYBMM_SRC)
+CFLAGS=-DJBDTOOL -I$(MYBMM_SRC) -DSTATIC_MODULES
 ifeq ($(DEBUG),yes)
 CFLAGS+=-Wall -g -DDEBUG=1
 else
@@ -39,7 +39,7 @@ LIBS+=-lgattlib -lglib-2.0
 endif
 endif
 LIBS+=-lpthread
-LDFLAGS+=-rdynamic
+LDFLAGS+=-rdynamic -static
 OBJS=$(SRCS:.c=.o)
 
 vpath %.c $(MYBMM_SRC)

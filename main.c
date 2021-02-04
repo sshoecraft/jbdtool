@@ -41,6 +41,7 @@ char *serialized_string = NULL;
 
 char *trim(char *);
 
+extern mybmm_module_t bt_module;
 extern mybmm_module_t ip_module;
 
 int dont_interpret = 0;
