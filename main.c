@@ -13,6 +13,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdarg.h>
@@ -163,6 +164,7 @@ struct jbd_params {
 	{ JBD_REG_VOLCAP30,"VoltageCap30", JBD_PARM_DT_INT },
 	{ JBD_REG_VOLCAP10,"VoltageCap10", JBD_PARM_DT_INT },
 	{ JBD_REG_VOLCAP100,"VoltageCap100", JBD_PARM_DT_INT },
+	{ JBD_REG_MOSFET,"Mosfet", JBD_PARM_DT_INT },
 	{ 0,0,0 }
 };
 typedef struct jbd_params jbd_params_t;
@@ -557,11 +559,6 @@ void display_info(jbd_info_t *info) {
                 unsigned ic: 1;                 /* Front detection IC error */
                 unsigned mos: 1;                /* Software lock MOS */
         } protect;
-        unsigned short fetstat;                 /* for the MOS tube status */
-        struct {
-                unsigned charging: 1;
-                unsigned discharging: 1;
-        } fet;
 #endif
 }
 
@@ -621,46 +618,6 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
 }
 
-#if 0
-#ifdef MQTT
-static char address[64];
-static char clientid[64];
-static char topic[64];
-#define QOS 1
-#define TIMEOUT     10000L
-
-int mqtt_send(char *message) {
-	MQTTClient client;
-	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
-	MQTTClient_message pubmsg = MQTTClient_message_initializer;
-	MQTTClient_deliveryToken token;
-	int rc;
-
-	MQTTClient_create(&client, address, clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
-	conn_opts.keepAliveInterval = 20;
-	conn_opts.cleansession = 1;
-	if ((rc = MQTTClient_connect(client, &conn_opts)) != MQTTCLIENT_SUCCESS) {
-		printf("Failed to connect, return code %d\n", rc);
-		exit(-1);
-	}
-	pubmsg.payload = message;
-	pubmsg.payloadlen = strlen(message);
-	pubmsg.qos = QOS;
-	pubmsg.retained = 0;
-	MQTTClient_publishMessage(client, topic, &pubmsg, &token);
-//	printf("Waiting for up to %d seconds for publication of %s\n" "on topic %s for client with ClientID: %s\n", (int)(TIMEOUT/1000), PAYLOAD, TOPIC, CLIENTID);
-	rc = MQTTClient_waitForCompletion(client, token, TIMEOUT);
-	printf("Message with delivery token %d delivered\n", token);
-	MQTTClient_disconnect(client, 10000);
-	MQTTClient_destroy(&client);
-	return rc;
-}
-#define MQTT_GETOPT "m:i:b"
-#else
-#define MQTT_GETOPT ""
-#endif
-#endif
-
 void usage() {
 	printf("usage: jbdtool [-abcjJrwlh] [-f filename] [-t <module:target> [-o output file]\n");
 	printf("arguments:\n");
@@ -668,6 +625,8 @@ void usage() {
 	printf("  -d <#>		debug output\n");
 #endif
 	printf("  -c		comma-delimited output\n");
+	printf("  -g <on|off>	charging on/off\n");
+	printf("  -G <on|off>	discharging on/off\n");
 	printf("  -j		JSON output\n");
 	printf("  -J		JSON output pretty print\n");
 	printf("  -r		read parameters\n");
@@ -694,6 +653,7 @@ void usage() {
 
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
+	int charge,discharge;
 	char *transport,*target,*label,*filename,*outfile,*p,*opts;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
@@ -707,6 +667,7 @@ int main(int argc, char **argv) {
 	char *mqtt;
 #endif
 
+	charge = discharge = -1;
 	action = pretty = outfmt = all = reg = dump = 0;
 	sepch = ',';
 	sepstr = ",";
@@ -715,7 +676,7 @@ int main(int argc, char **argv) {
 	interval = 0;
 	mqtt = 0;
 #endif
-	while ((opt=getopt(argc, argv, "+acDd:nt:e:f:R:jJo:rwlh"MQTT_GETOPT)) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlh"MQTT_GETOPT)) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -730,6 +691,28 @@ int main(int argc, char **argv) {
 			break;
 		case 'd':
 			debug=atoi(optarg);
+			break;
+		case 'g':
+			if (strcasecmp(optarg,"on")==0)
+				charge = 1;
+			else if (strcasecmp(optarg,"off")==0)
+				charge = 0;
+			else {
+				printf("error: invalid charge state: %s\n", optarg);
+				usage();
+				return 1;
+			}
+			break;
+		case 'G':
+			if (strcasecmp(optarg,"on")==0)
+				discharge = 1;
+			else if (strcasecmp(optarg,"off")==0)
+				discharge = 0;
+			else {
+				printf("error: invalid discharge state: %s\n", optarg);
+				usage();
+				return 1;
+			}
 			break;
 #ifdef MQTT
 		case 'm':
@@ -833,6 +816,29 @@ int main(int argc, char **argv) {
 	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
+	/* If setting charge or discharge do that here */
+	dprintf(2,"charge: %d, discharge: %d\n", charge, discharge);
+	if (charge >= 0 || discharge >= 0) {
+		opt = 0;
+		if (pack.open(pack.handle)) return 1;
+		if (jbd_get_info(pack.handle,&info) == 0) {
+			dprintf(2,"fetstate: %x\n", info.fetstate);
+			if (charge == 0 || (info.fetstate & JBD_MOS_CHARGE) == 0) opt |= JBD_MOS_CHARGE;
+			if (charge == 1) opt = (opt & ~JBD_MOS_CHARGE);
+			dprintf(2,"opt: %x\n", opt);
+			if (discharge == 0 || (info.fetstate & JBD_MOS_DISCHARGE) == 0) opt |= JBD_MOS_DISCHARGE;
+			if (discharge == 1) opt = (opt & ~JBD_MOS_DISCHARGE);
+			dprintf(2,"opt: %x\n", opt);
+			i = jbd_set_mosfet(pack.handle,opt);
+			if (!i) {
+				if (charge >= 0) printf("charging %s\n", charge ? "enabled" : "disabled");
+				if (discharge >= 0) printf("discharging %s\n", discharge ? "enabled" : "disabled");
+			}
+		}
+		if (pack.close(pack.handle)) return 1;
+		return i;
+	}
+	
 	/* If MQTT, output is compact JSON */
 	dprintf(1,"mqtt: %p\n", mqtt);
 	if (mqtt) {
@@ -914,7 +920,8 @@ int main(int argc, char **argv) {
 			bytes = jbd_rw(pack.handle, JBD_CMD_READ, reg, data, sizeof(data));
 			dprintf(3,"bytes: %d\n", bytes);
 			if (bytes > 0) {
-				sprintf(temp,"Register %02x\n", reg);
+				sprintf(temp,"Register %02x", reg);
+				dprintf(2,"temp: %s\n", temp);
 				pdisp(temp,JBD_PARM_DT_DUMP,data,bytes);
 			}
 			jbd_eeprom_end(pack.handle);

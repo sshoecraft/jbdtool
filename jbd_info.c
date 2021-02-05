@@ -27,6 +27,18 @@ int jbd_eeprom_end(jbd_session_t *s) {
 	return jbd_rw(s, JBD_CMD_WRITE, JBD_REG_CONFIG, payload, sizeof(payload) );
 }
 
+int jbd_set_mosfet(jbd_session_t *s, int val) {
+	uint8_t payload[2];
+	int r;
+
+	dprintf(2,"val: %x\n", val);
+	_putshort(payload,val);
+	if (jbd_eeprom_start(s) < 0) return 1;
+	r = jbd_rw(s, JBD_CMD_WRITE, JBD_REG_MOSFET, payload, sizeof(payload));
+	if (jbd_eeprom_end(s) < 0) return 1;
+	return (r < 0 ? 1 : 0);
+}
+
 /* For CAN bus only */
 int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	unsigned char data[8];
