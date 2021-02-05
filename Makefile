@@ -1,7 +1,7 @@
 
 DEBUG=yes
 BLUETOOTH=yes
-MQTT=yes
+MQTT=no
 PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
 
 PROG=jbdtool

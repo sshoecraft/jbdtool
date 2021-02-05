@@ -660,9 +660,9 @@ int main(int argc, char **argv) {
 	mybmm_pack_t pack;
 	jbd_info_t info;
 	jbd_params_t *pp;
-	char clientid[32];
 	uint8_t data[128];
 #ifdef MQTT
+	char clientid[32];
 	int interval;
 	char *mqtt;
 #endif
@@ -839,6 +839,7 @@ int main(int argc, char **argv) {
 		return i;
 	}
 	
+#ifdef MQTT
 	/* If MQTT, output is compact JSON */
 	dprintf(1,"mqtt: %p\n", mqtt);
 	if (mqtt) {
@@ -863,6 +864,7 @@ int main(int argc, char **argv) {
 		mqtt_disconnect(s,10);
 		mqtt_destroy(s);
 	}
+#endif
 
 	if (outfile) {
 		dprintf(1,"outfile: %s\n", outfile);
