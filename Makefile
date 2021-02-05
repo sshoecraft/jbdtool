@@ -1,6 +1,6 @@
 
 DEBUG=yes
-BLUETOOTH=no
+BLUETOOTH=yes
 MQTT=yes
 PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
 
