@@ -676,7 +676,7 @@ int main(int argc, char **argv) {
 	interval = 0;
 	mqtt = 0;
 #endif
-	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlh"MQTT_GETOPT)) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:h")) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
