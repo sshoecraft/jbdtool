@@ -7,6 +7,7 @@
 
 /* This is for jbdtool */
 struct jbd_info {
+	char name[32];
 	float voltage;			/* the total voltage */
 	float current;			/* the current, charging is positive, the discharge is negative */
 	float capacity;			/* the remaining capacity */

@@ -470,6 +470,7 @@ void display_info(jbd_info_t *info) {
 	char temp[256],*p;
 	int i;
 
+	if (strlen(info->name)) dstr("Name","%.3f",info->name);
 	dfloat("Voltage","%.3f",info->voltage);
 	dfloat("Current","%.3f",info->current);
 	dfloat("DesignCapacity","%.3f",info->fullcap);
@@ -906,7 +907,13 @@ int main(int argc, char **argv) {
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
-		if (jbd_get_info(pack.handle,&info) == 0) display_info(&info);
+		if (jbd_get_info(pack.handle,&info) == 0) {
+#ifdef MQTT
+			info.name[0] = 0;
+			strncat(info.name,clientid,sizeof(info.name)-1);
+#endif
+			display_info(&info);
+		}
 		pack.close(pack.handle);
 		break;
 	case JBDTOOL_ACTION_READ:
