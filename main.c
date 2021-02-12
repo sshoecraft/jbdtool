@@ -977,7 +977,6 @@ int main(int argc, char **argv) {
 				}
 				jbd_eeprom_end(pack.handle);
 				pack.close(pack.handle);
-				json_value_free(root_value);
 			} else {
 				fp = fopen(filename,"r");
 				if (!fp) {
@@ -1094,7 +1093,6 @@ int main(int argc, char **argv) {
 				}
 				jbd_eeprom_end(pack.handle);
 				pack.close(pack.handle);
-				json_value_free(root_value);
 			} else {
 				fp = fopen(filename,"r");
 				if (!fp) {
