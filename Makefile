@@ -65,10 +65,14 @@ debug: $(PROG)
 	gdb ./$(PROG)
 
 install: $(PROG)
-	install -m 755 -o bin -g bin $(PROG) /usr/bin/$(PROG)
+	sudo install -m 755 -o bin -g bin $(PROG) /usr/bin/$(PROG)
 
 clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)
+
+zip: $(PROG)
+	rm -f jbdtool_pi_static.zip
+	zip jbdtool_pi_static.zip $(PROG)
 
 push: clean
 	git add -A .

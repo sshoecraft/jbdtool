@@ -211,10 +211,16 @@ void dbool(char *label, int val) {
 		json_object_set_boolean(root_object, label, val);
 		break;
 	case 1:
-		fprintf(outfp,"%s,%s\n",label,val ? "true" : "false");
+		if (dont_interpret)
+			fprintf(outfp,"%s,%d\n",label,val);
+		else
+			fprintf(outfp,"%s,%s\n",label,val ? "true" : "false");
 		break;
 	default:
-		fprintf(outfp,"%-25s %s\n",label,val ? "true" : "false");
+		if (dont_interpret)
+			fprintf(outfp,"%-25s %d\n",label,val);
+		else
+			fprintf(outfp,"%-25s %s\n",label,val ? "true" : "false");
 		break;
 	}
 }
@@ -339,10 +345,10 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 				json_object_dotset_value(root_object, label, json_parse_string(temp));
 				break;
 			case 1:
-				printf("%s,%s\n",label,str);
+				dstr(label,"%s",str);
 				break;
 			default:
-				printf("%-25s %s\n",label,str);
+				dstr(label,"%s",str);
 				break;
 			}
 		}	
@@ -368,10 +374,10 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 				json_object_dotset_value(root_object, label, json_parse_string(temp));
 				break;
 			case 1:
-				printf("%s,%s\n",label,str);
+				dstr(label,"%s",str);
 				break;
 			default:
-				printf("%-25s %s\n",label,str);
+				dstr(label,"%s",str);
 				break;
 			}
 		}
@@ -470,7 +476,7 @@ void display_info(jbd_info_t *info) {
 	char temp[256],*p;
 	int i;
 
-	if (strlen(info->name)) dstr("Name","%.3f",info->name);
+	if (strlen(info->name)) dstr("Name","%s",info->name);
 	dfloat("Voltage","%.3f",info->voltage);
 	dfloat("Current","%.3f",info->current);
 	dfloat("DesignCapacity","%.3f",info->fullcap);
@@ -868,6 +874,14 @@ int main(int argc, char **argv) {
 #endif
 
 	if (outfile) {
+		p = strrchr(outfile,'.');
+		if (p) {
+			dprintf(1,"p: %s\n", p);
+			if (strcmp(p,".json")==0 || strcmp(p,".JSON")==0) {
+				outfmt = 2;
+				pretty = 1;
+			}
+		}
 		dprintf(1,"outfile: %s\n", outfile);
 		outfp = fopen(outfile,"w+");
 		if (!outfp) {
