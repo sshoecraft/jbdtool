@@ -54,6 +54,9 @@ vpath %.c $(MYBMM_SRC)
 .PHONY: all
 all: $(PROG)
 
+# Set CC to gcc if not set
+CC ?= gcc
+
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
