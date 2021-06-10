@@ -1,4 +1,4 @@
-
+#ifndef __WIN32
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -48,3 +48,4 @@ int become_daemon(void) {
 	close(2);
 	return 0;
 }
+#endif

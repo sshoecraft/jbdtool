@@ -19,7 +19,9 @@ typedef struct mybmm_config mybmm_config_t;
 #include <stdarg.h>
 #include <errno.h>
 #include <ctype.h>
+#ifndef __WIN32
 #include <dlfcn.h>
+#endif
 //#include "util.h"
 #include "parson.h"
 #include "mybmm.h"
@@ -41,9 +43,6 @@ JSON_Object *root_object;
 char *serialized_string = NULL;
 
 char *trim(char *);
-
-extern mybmm_module_t bt_module;
-extern mybmm_module_t ip_module;
 
 int dont_interpret = 0;
 
@@ -811,8 +810,10 @@ int main(int argc, char **argv) {
 	dprintf(2,"transport: %s\n", transport);
 
 	tp = mybmm_load_module(conf,transport,MYBMM_MODTYPE_TRANSPORT);
+	dprintf(1,"tp: %p\n", tp);
 	if (!tp) return 1;
 	cp = mybmm_load_module(conf,"jbd",MYBMM_MODTYPE_CELLMON);
+	dprintf(1,"cp: %p\n", cp);
 	if (!cp) return 1;
 
 	/* Init the pack */

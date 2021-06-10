@@ -39,6 +39,7 @@ int jbd_set_mosfet(jbd_session_t *s, int val) {
 	return (r < 0 ? 1 : 0);
 }
 
+#ifndef __WIN32
 /* For CAN bus only */
 int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	unsigned char data[8];
@@ -156,6 +157,7 @@ int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	dprintf(1,"model: %s\n", info->model);
 	return 0;
 }
+#endif
 
 static int jbd_std_get_info(jbd_session_t *s, jbd_info_t *info) {
 	unsigned char data[256];
@@ -259,9 +261,11 @@ int jbd_get_info(jbd_session_t *s, jbd_info_t *info) {
 	int r,i;
 
 	dprintf(1,"transport: %s\n", s->tp->name);
+#ifndef __WIN32
 	if (strncmp(s->tp->name,"can",3)==0) 
 		r = jbd_can_get_info(s,info);
 	else
+#endif
 		r = jbd_std_get_info(s,info);
 	if (r != 0) return r;
 	dprintf(1,"r: %d\n", r);

@@ -1,68 +1,92 @@
 
 DEBUG=yes
-BLUETOOTH=yes
+BLUETOOTH=no
 MQTT=yes
-PI=$(shell test $$(cat /proc/cpuinfo  | grep ^model | grep -c ARM) -gt 0 && echo yes)
 
-PROG=jbdtool
-MYBMM_SRC=../mybmm
-TRANSPORTS=$(shell cat $(MYBMM_SRC)/Makefile | grep ^TRANSPORTS | head -1 | awk -F= '{ print $$2 }')
-ifneq ($(BLUETOOTH),yes)
-_TMPVAR := $(TRANSPORTS)
-TRANSPORTS = $(filter-out bt.c, $(_TMPVAR))
+ifeq ($(TARGET),win32)
+	CC = /usr/bin/i686-w64-mingw32-gcc
+	CFLAGS+=-D_WIN32
+	WINDOWS=yes
+	EXT=.exe
+else ifeq ($(TARGET),win64)
+	CC = /usr/bin/x86_64-w64-mingw32-gcc
+	CFLAGS+=-D_WIN64
+	WINDOWS=yes
+	EXT=.exe
+else ifeq ($(TARGET),pi)
+	CC = /usr/arm-linux-gnueabihf/bin/arm-linux-gnueabihf-gcc
+	LINUX=yes
+else
+	CC = gcc
+	LINUX=yes
 endif
-SRCS=main.c module.c jbd_info.c jbd.c parson.c list.c utils.c cfg.c daemon.c $(TRANSPORTS)
-CFLAGS=-DJBDTOOL -I$(MYBMM_SRC) -DSTATIC_MODULES
+
+
+PROG=jbdtool$(EXT)
+SRCS=main.c jbd_info.c jbd.c parson.c list.c utils.c cfg.c daemon.c module.c ip.c serial.c bt.c can.c 
 
 ifeq ($(DEBUG),yes)
 CFLAGS+=-Wall -g -DDEBUG=1
 else
 CFLAGS+=-Wall -O2 -pipe
 endif
-LIBS=-ldl
+#LIBS=-ldl
 
 ifeq ($(MQTT),yes)
-SRCS+=mqtt.c
-CFLAGS+=-DMQTT
-ifeq ($(PI),yes)
-LIBS+=./libpaho-mqtt3c.a
-DEPS=./libpaho-mqtt3c.a
-else
-LIBS+=-lpaho-mqtt3c
-endif
+	SRCS+=mqtt.c
+	CFLAGS+=-DMQTT
+	ifeq ($(WINDOWS),yes)
+		ifeq ($(STATIC),yes)
+			LIBS+=-lpaho-mqtt3c-static
+		else
+			LIBS+=-lpaho-mqtt3c
+		endif
+		LIBS+=-lws2_32
+		ifeq ($(STATIC),yes)
+			LIBS+=-lgdi32 -lcrypt32 -lrpcrt4 -lkernel32
+		endif
+	else
+		LIBS+=-lpaho-mqtt3c
+	endif
 endif
 
 ifeq ($(BLUETOOTH),yes)
-CFLAGS+=-DBLUETOOTH
-ifeq ($(PI),yes)
-LIBS+=./libgattlib.a -lglib-2.0
-DEPS=./libgattlib.a
-else
-LIBS+=-lgattlib -lglib-2.0
+	CFLAGS+=-DBLUETOOTH
+	LIBS+=-lgattlib -lglib-2.0
 endif
-endif
+
 LIBS+=-lpthread
-LDFLAGS+=-rdynamic
+#LDFLAGS+=-rdynamic
 OBJS=$(SRCS:.c=.o)
 
-ifeq ($(PI),yes)
-LDFLAGS+=-static
+ifeq ($(STATIC),yes)
+	LDFLAGS+=-static
 endif
-
-vpath %.c $(MYBMM_SRC)
 
 .PHONY: all
 all: $(PROG)
-
-# Set CC to gcc if not set
-CC ?= gcc
 
 $(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
 #$(OBJS): Makefile
 
-include $(MYBMM_SRC)/Makefile.dep
+DEPDIR := .deps
+CLEANFILES+=.deps
+DEPFLAGS = -MT $@ -MMD -MP -MF $(DEPDIR)/$*.d
+
+COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+
+%.o : %.c
+%.o : %.c $(DEPDIR)/%.d | $(DEPDIR)
+	$(COMPILE.c) $(OUTPUT_OPTION) $<
+
+$(DEPDIR): ; @mkdir -p $@
+
+DEPFILES := $(SRCS:%.c=$(DEPDIR)/%.d)
+$(DEPFILES):
+
+include $(wildcard $(DEPFILES))
 
 debug: $(PROG)
 	gdb ./$(PROG)
@@ -74,8 +98,8 @@ clean:
 	rm -rf $(PROG) $(OBJS) $(CLEANFILES)
 
 zip: $(PROG)
-	rm -f jbdtool_pi_static.zip
-	zip jbdtool_pi_static.zip $(PROG)
+	rm -f jbdtool_$(TARGET)_static.zip
+	zip jbdtool_$(TARGET)_static.zip $(PROG)
 
 push: clean
 	git add -A .
