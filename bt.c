@@ -53,7 +53,7 @@ static void *bt_new(mybmm_config_t *conf, ...) {
 	}
 	strncat(s->target,(char *)target,sizeof(s->target)-1);
 	if (topts) {
-		if (strlen((char *)topts) && strncmp((char *)topts,"0x",2) != 0)
+		if (strlen((char *)topts) && strncmp((char *)topts,"0x",2) != 0 && !strchr((char *)topts,'-'))
 			sprintf(s->topts,"0x%s",(char *)topts);
 		else
 			strncat(s->topts,(char *)topts,sizeof(s->topts)-1);
@@ -120,6 +120,7 @@ static int bt_open(void *handle) {
 		free(cp);
 		if (!found) {
 			/* just force use of ffe1 */
+			dprintf(1,"not found, using 0xffe1\n");
 			strcpy(s->topts,"0xffe1");
 			gattlib_string_to_uuid(s->topts, strlen(s->topts)+1, &s->uuid);
 		}

@@ -1,6 +1,6 @@
 
 DEBUG=yes
-BLUETOOTH=no
+BLUETOOTH=yes
 MQTT=yes
 
 ifeq ($(TARGET),win32)
@@ -32,6 +32,7 @@ CFLAGS+=-Wall -O2 -pipe
 endif
 #LIBS=-ldl
 
+STATIC=no
 ifeq ($(MQTT),yes)
 	SRCS+=mqtt.c
 	CFLAGS+=-DMQTT
@@ -50,9 +51,11 @@ ifeq ($(MQTT),yes)
 	endif
 endif
 
+ifneq ($(WINDOWS),yes)
 ifeq ($(BLUETOOTH),yes)
 	CFLAGS+=-DBLUETOOTH
-	LIBS+=-lgattlib -lglib-2.0
+	LIBS+=-lgattlib -lgobject-2.0 -lgio-2.0 -lglib-2.0
+endif
 endif
 
 LIBS+=-lpthread

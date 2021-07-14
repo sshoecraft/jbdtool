@@ -45,6 +45,7 @@ char *serialized_string = NULL;
 char *trim(char *);
 
 int dont_interpret = 0;
+int flat = 0;
 
 enum JBD_PARM_DT {
 	JBD_PARM_DT_UNK,
@@ -472,7 +473,7 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 }
 
 void display_info(jbd_info_t *info) {
-	char temp[256],*p;
+	char label[16], temp[256],*p;
 	int i;
 
 	if (strlen(info->name)) dstr("Name","%s",info->name);
@@ -483,28 +484,38 @@ void display_info(jbd_info_t *info) {
 	_dint("PercentCapacity",info->pctcap);
 	_dint("CycleCount",info->cycles);
 	_dint("Probes",info->probes);
-	switch(outfmt) {
-	case 2:
-		p = temp;
-		p += sprintf(p,"[ ");
-		for(i=0; i < info->probes; i++) {
-			if (i) p += sprintf(p,",");
-			p += sprintf(p, "%.1f",info->temps[i]);
-		}
-		strcat(temp," ]");
-                dprintf(1,"temp: %s\n", temp);
-                json_object_dotset_value(root_object, "Temps", json_parse_string(temp));
-                break;
-	default:
-		p = temp;
-		for(i=0; i < info->probes; i++) {
-			if (i) p += sprintf(p,"%c",sepch);
-			p += sprintf(p, "%.1f",info->temps[i]);
-		}
-		dstr("Temps","%s",temp);
-                break;
-	}
 	_dint("Strings",info->strings);
+	if (flat) {
+		for(i=0; i < info->probes; i++) {
+			sprintf(label,"temp_%02d",i);
+			dfloat(label,"%.1f",info->temps[i]);
+		}
+		for(i=0; i < info->strings; i++) {
+			sprintf(label,"cell_%02d",i);
+			dfloat(label,"%.3f",info->cellvolt[i]);
+		}
+	} else {
+		switch(outfmt) {
+		case 2:
+			p = temp;
+			p += sprintf(p,"[ ");
+			for(i=0; i < info->probes; i++) {
+				if (i) p += sprintf(p,",");
+				p += sprintf(p, "%.1f",info->temps[i]);
+			}
+			strcat(temp," ]");
+			dprintf(1,"temp: %s\n", temp);
+			json_object_dotset_value(root_object, "Temps", json_parse_string(temp));
+			break;
+		default:
+			p = temp;
+			for(i=0; i < info->probes; i++) {
+				if (i) p += sprintf(p,"%c",sepch);
+				p += sprintf(p, "%.1f",info->temps[i]);
+			}
+			dstr("Temps","%s",temp);
+			break;
+		}
 	switch(outfmt) {
 	case 2:
 		p = temp;
@@ -525,6 +536,7 @@ void display_info(jbd_info_t *info) {
 		}
 		dstr("Cells","%s",temp);
                 break;
+	}
 	}
 	dfloat("CellTotal","%.3f",info->cell_total);
 	dfloat("CellMin","%.3f",info->cell_min);
@@ -648,6 +660,7 @@ void usage() {
 #ifdef MQTT
 	printf("  -m <host:clientid:topic[:user[:pass]]> Send results to MQTT broker\n");
 	printf("  -i 		Update interval\n");
+	printf("  -F 		Flatten arrays\n");
 #endif
 }
 
@@ -674,7 +687,7 @@ int main(int argc, char **argv) {
 #endif
 
 	charge = discharge = -1;
-	action = pretty = outfmt = all = reg = dump = 0;
+	action = pretty = outfmt = all = reg = dump = flat = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
@@ -682,7 +695,7 @@ int main(int argc, char **argv) {
 	interval = 0;
 	mqtt = 0;
 #endif
-	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:h")) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:hF")) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -776,6 +789,9 @@ int main(int argc, char **argv) {
 			for(pp = params; pp->label; pp++) printf("%s\n", pp->label);
 			return 0;
 			break;
+		case 'F':
+			flat=1;
+			break;
 		case 'h':
 		default:
 			usage();
@@ -852,6 +868,7 @@ int main(int argc, char **argv) {
 	dprintf(1,"mqtt: %p\n", mqtt);
 	if (mqtt) {
 		void *s;
+
 		action = JBDTOOL_ACTION_INFO;
 		outfmt = 2;
 		strcpy(conf->mqtt_broker,strele(0,":",mqtt));
@@ -871,6 +888,8 @@ int main(int argc, char **argv) {
 		if (mqtt_connect(s,20,conf->mqtt_username,conf->mqtt_password)) return 1;
 		mqtt_disconnect(s,10);
 		mqtt_destroy(s);
+	} else {
+		*clientid = 0;
 	}
 #endif
 
@@ -922,9 +941,9 @@ int main(int argc, char **argv) {
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
+		memset(&info,0,sizeof(info));
 		if (jbd_get_info(pack.handle,&info) == 0) {
 #ifdef MQTT
-			info.name[0] = 0;
 			strncat(info.name,clientid,sizeof(info.name)-1);
 #endif
 			display_info(&info);
