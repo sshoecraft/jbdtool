@@ -538,6 +538,18 @@ void display_info(jbd_info_t *info) {
                 break;
 	}
 	}
+	{
+		char bits[40];
+		unsigned short mask = 1;
+		i = 0;
+		while(mask) {
+			bits[i++] = ((info->balancebits & mask) != 0 ? '1' : '0');
+			mask <<= 1;
+		}
+		bits[i] = 0;
+		dprintf(1,"balance: %s\n",bits);
+		dstr("Balance","%s",bits);
+	}
 	dfloat("CellTotal","%.3f",info->cell_total);
 	dfloat("CellMin","%.3f",info->cell_min);
 	dfloat("CellMax","%.3f",info->cell_max);
@@ -681,7 +693,7 @@ int main(int argc, char **argv) {
 	jbd_params_t *pp;
 	uint8_t data[128];
 #ifdef MQTT
-	char clientid[32];
+//	char clientid[32];
 	int interval;
 	char *mqtt;
 #endif
@@ -694,6 +706,7 @@ int main(int argc, char **argv) {
 #ifdef MQTT
 	interval = 0;
 	mqtt = 0;
+	char mqtt_topic[128];
 #endif
 	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:hF")) != -1) {
 		switch (opt) {
@@ -822,6 +835,7 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 	conf->modules = list_create();
+	memset(&info,0,sizeof(info));
 
 	dprintf(2,"transport: %s\n", transport);
 
@@ -867,10 +881,12 @@ int main(int argc, char **argv) {
 	/* If MQTT, output is compact JSON */
 	dprintf(1,"mqtt: %p\n", mqtt);
 	if (mqtt) {
-		void *s;
+		struct mqtt_config mc;
+//		void *s;
 
 		action = JBDTOOL_ACTION_INFO;
 		outfmt = 2;
+#if 0
 		strcpy(conf->mqtt_broker,strele(0,":",mqtt));
 		strcpy(clientid,strele(1,":",mqtt));
 		strcpy(conf->mqtt_topic,strele(2,":",mqtt));
@@ -881,15 +897,34 @@ int main(int argc, char **argv) {
 			printf("error: mqtt format is: host:clientid:topic\n");
 			return 1;
 		}
+#endif
+		strcpy(mc.host,strele(0,":",mqtt));
+		strcpy(mc.clientid,strele(1,":",mqtt));
+		strcpy(mqtt_topic,strele(2,":",mqtt));
+		strcpy(mc.user,strele(3,":",mqtt));
+		strcpy(mc.pass,strele(4,":",mqtt));
+		dprintf(1,"host: %s, clientid: %s, topic: %s, user: %s, pass: %s\n", mc.host, mc.clientid, mqtt_topic, mc.user, mc.pass);
+		if (strlen(mc.host) ==0 || strlen(mc.clientid) == 0 || strlen(mqtt_topic)==0) {
+			printf("error: mqtt format is: host:clientid:topic\n");
+			return 1;
+		}
 
-		/* Try to connect */
-		s = mqtt_new(conf->mqtt_broker,clientid,conf->mqtt_topic);
-		if (!s) return 1;
-		if (mqtt_connect(s,20,conf->mqtt_username,conf->mqtt_password)) return 1;
-		mqtt_disconnect(s,10);
-		mqtt_destroy(s);
-	} else {
-		*clientid = 0;
+//		s = mqtt_new(conf->mqtt_broker,clientid,conf->mqtt_topic);
+		conf->mqtt = mqtt_new(&mc,0,0);
+		if (!conf->mqtt) return 1;
+
+		/* Test the connection */
+		if (mqtt_connect(conf->mqtt,10)) return 1;
+		mqtt_disconnect(conf->mqtt,1);
+
+		strncat(info.name,mc.clientid,sizeof(info.name)-1);
+		dprintf(1,"info.name: %s\n", info.name);
+		pretty = 0;
+//		if (mqtt_connect(s,20,conf->mqtt_username,conf->mqtt_password)) return 1;
+//		mqtt_disconnect(s,10);
+//		mqtt_destroy(s);
+//	} else {
+//		*clientid = 0;
 	}
 #endif
 
@@ -941,11 +976,10 @@ int main(int argc, char **argv) {
 	switch(action) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
-		memset(&info,0,sizeof(info));
 		if (jbd_get_info(pack.handle,&info) == 0) {
-#ifdef MQTT
-			strncat(info.name,clientid,sizeof(info.name)-1);
-#endif
+//#ifdef MQTT
+//			strncat(info.name,clientid,sizeof(info.name)-1);
+//#endif
 			display_info(&info);
 		}
 		pack.close(pack.handle);
@@ -1189,8 +1223,11 @@ int main(int argc, char **argv) {
 		else
     			serialized_string = json_serialize_to_string(root_value);
 #ifdef MQTT
-		if (mqtt) mqtt_fullsend(conf->mqtt_broker,clientid,serialized_string,conf->mqtt_topic,conf->mqtt_username,conf->mqtt_password);
-
+		if (conf->mqtt) {
+			if (mqtt_connect(conf->mqtt,10)) return 1;
+			mqtt_pub(conf->mqtt,mqtt_topic,serialized_string, 0);
+			mqtt_disconnect(conf->mqtt,5);
+		}
 		else
 #endif
 		fprintf(outfp,"%s",serialized_string);

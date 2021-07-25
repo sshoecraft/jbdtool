@@ -21,7 +21,6 @@ else
 	LINUX=yes
 endif
 
-
 PROG=jbdtool$(EXT)
 SRCS=main.c jbd_info.c jbd.c parson.c list.c utils.c cfg.c daemon.c module.c ip.c serial.c bt.c can.c 
 
