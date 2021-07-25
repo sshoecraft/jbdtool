@@ -540,10 +540,11 @@ void display_info(jbd_info_t *info) {
 	}
 	{
 		char bits[40];
-		unsigned short mask = 1;
+		unsigned long mask = 1;
 		i = 0;
 		while(mask) {
 			bits[i++] = ((info->balancebits & mask) != 0 ? '1' : '0');
+			if (i >= info->strings) break;
 			mask <<= 1;
 		}
 		bits[i] = 0;
