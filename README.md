@@ -2,10 +2,13 @@
 JBD BMS linux-based utility
 
 Bluetooth support requires gattlib https://github.com/labapart/gattlib
+
 build & install the library then edit the Makefile and set BLUETOOTH=yes
 
 MQTT support requires the phao.mqtt.c library https://github.com/eclipse/paho.mqtt.c
+
 build & install the library then edit the Makefile and set MQTT=yes
+
 
 
 Transports are specified as:
