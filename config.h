@@ -25,12 +25,6 @@ struct mybmm_config {
 #ifdef MQTT
 	mqtt_session_t *mqtt;		/* MQTT info */
 #endif
-#if 0
-	char mqtt_broker[64];		/* MQTT Broker URL */
-	char mqtt_topic[128];		/* MQTT Base Topic */
-	char mqtt_username[32];		/* MQTT Username */
-	char mqtt_password[32];		/* MQTT Password */
-#endif
 	char *filename;			/* Config filename */
 	void *logfp;			/* Log filehandle */
 	char db_name[32];		/* DB Name */

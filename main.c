@@ -682,6 +682,45 @@ void usage() {
 #define MQTT_GETOPT ""
 #endif
 
+#if 0
+#ifdef MQTT
+int mqtt_init(mybmm_config_t *conf) {
+        /* MQTT Init */
+        dprintf(1,"host: %s, clientid: %s, user: %s, pass: %s\n",
+                conf->mqtt_config.host, conf->mqtt_config.clientid, conf->mqtt_config.user, conf->mqtt_config.pass);
+        if (!strlen(conf->mqtt_config.host)) {
+                log_write(LOG_WARNING,"mqtt host not specified, using localhost\n");
+                strcpy(conf->mqtt_config.host,"localhost");
+        }
+
+        /* MQTT requires a unique ClientID for connections */
+        if (!strlen(conf->mqtt_config.clientid)) {
+                uint8_t uuid[16];
+
+                dprintf(1,"gen'ing MQTT ClientID...\n");
+                uuid_generate_random(uuid);
+                my_uuid_unparse(uuid, conf->mqtt_config.clientid);
+                dprintf(4,"clientid: %s\n",conf->mqtt_config.clientid);
+        }
+
+        /* Create LWT topic */
+        agent_mktopic(conf->mqtt_config.lwt_topic,sizeof(conf->mqtt_config.lwt_topic)-1,ap,conf->instance_name,
+                "Status",0,0);
+//      sprintf(conf->mqtt_config.lwt_topic,"%s/%s/%s/%s",SOLARD_TOPIC_ROOT,conf->role->name,conf->instance_name,SOLARD_FUNC_STATUS);
+
+        /* Create MQTT session */
+        conf->m = mqtt_new(&conf->mqtt_config, solard_getmsg, conf->mq);
+
+        /* Callback - must be done before connect */
+//      if (mqtt_setcb(conf->m,ap,0,agent_callback0)) return 0;
+
+        /* Connect to the server */
+        if (mqtt_connect(conf->m,20)) goto agent_init_error;
+}
+#endif
+#endif
+
+
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
 	int charge,discharge;
@@ -693,7 +732,6 @@ int main(int argc, char **argv) {
 	jbd_params_t *pp;
 	uint8_t data[128];
 #ifdef MQTT
-//	char clientid[32];
 	int interval;
 	char *mqtt;
 #endif
@@ -882,22 +920,11 @@ int main(int argc, char **argv) {
 	dprintf(1,"mqtt: %p\n", mqtt);
 	if (mqtt) {
 		struct mqtt_config mc;
-//		void *s;
+
+		memset(&mc,0,sizeof(mc));
 
 		action = JBDTOOL_ACTION_INFO;
 		outfmt = 2;
-#if 0
-		strcpy(conf->mqtt_broker,strele(0,":",mqtt));
-		strcpy(clientid,strele(1,":",mqtt));
-		strcpy(conf->mqtt_topic,strele(2,":",mqtt));
-		strcpy(conf->mqtt_username,strele(3,":",mqtt));
-		strcpy(conf->mqtt_password,strele(4,":",mqtt));
-		dprintf(1,"broker: %s, clientid: %s, topic: %s, user: %s, pass: %s\n", conf->mqtt_broker, clientid, conf->mqtt_topic, conf->mqtt_username, conf->mqtt_password);
-		if (strlen(conf->mqtt_broker) ==0 || strlen(clientid) == 0 || strlen(conf->mqtt_topic)==0) {
-			printf("error: mqtt format is: host:clientid:topic\n");
-			return 1;
-		}
-#endif
 		strcpy(mc.host,strele(0,":",mqtt));
 		strcpy(mc.clientid,strele(1,":",mqtt));
 		strcpy(mqtt_topic,strele(2,":",mqtt));
@@ -905,26 +932,20 @@ int main(int argc, char **argv) {
 		strcpy(mc.pass,strele(4,":",mqtt));
 		dprintf(1,"host: %s, clientid: %s, topic: %s, user: %s, pass: %s\n", mc.host, mc.clientid, mqtt_topic, mc.user, mc.pass);
 		if (strlen(mc.host) ==0 || strlen(mc.clientid) == 0 || strlen(mqtt_topic)==0) {
-			printf("error: mqtt format is: host:clientid:topic\n");
+			printf("error: mqtt format is: host:clientid:topic[:user:pass]\n");
 			return 1;
 		}
 
-//		s = mqtt_new(conf->mqtt_broker,clientid,conf->mqtt_topic);
 		conf->mqtt = mqtt_new(&mc,0,0);
 		if (!conf->mqtt) return 1;
 
 		/* Test the connection */
-		if (mqtt_connect(conf->mqtt,10)) return 1;
-		mqtt_disconnect(conf->mqtt,1);
+		if (mqtt_connect(conf->mqtt,20)) return 1;
+		mqtt_disconnect(conf->mqtt,10);
 
 		strncat(info.name,mc.clientid,sizeof(info.name)-1);
 		dprintf(1,"info.name: %s\n", info.name);
 		pretty = 0;
-//		if (mqtt_connect(s,20,conf->mqtt_username,conf->mqtt_password)) return 1;
-//		mqtt_disconnect(s,10);
-//		mqtt_destroy(s);
-//	} else {
-//		*clientid = 0;
 	}
 #endif
 
@@ -977,9 +998,6 @@ int main(int argc, char **argv) {
 	case JBDTOOL_ACTION_INFO:
 		if (pack.open(pack.handle)) return 1;
 		if (jbd_get_info(pack.handle,&info) == 0) {
-//#ifdef MQTT
-//			strncat(info.name,clientid,sizeof(info.name)-1);
-//#endif
 			display_info(&info);
 		}
 		pack.close(pack.handle);

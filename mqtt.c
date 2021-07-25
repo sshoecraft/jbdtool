@@ -220,11 +220,11 @@ int mqtt_connect(mqtt_session_t *s, int interval) {
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		if (rc == 5) {
-			log_write(LOG_ERROR,"MQTT: bad username or password\n");
+			log_error("MQTT: bad username or password\n");
 			return 1;
 		} else {
 			char *p = (char *)MQTTReasonCode_toString(rc);
-			log_write(LOG_ERROR,"MQTTClient_connect: %s\n",p ? p : "cant connect");
+			log_error("MQTTClient_connect: %s\n",p ? p : "cant connect");
 		}
 		return 1;
 	} else if (strlen(s->config.lwt_topic)) {

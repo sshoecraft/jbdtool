@@ -35,6 +35,9 @@ int get_timestamp(char *ts, int tslen, int local);
 int log_open(char *,char *,int);
 int log_read(char *,int);
 int log_write(int,char *,...);
+#define log_info(args...) log_write(LOG_INFO,args)
+#define log_error(args...) log_write(LOG_ERROR,args)
+#define log_syserror(args...) log_write(LOG_SYSERROR,args)
 int log_debug(char *,...);
 void log_close(void);
 void log_writeopts(void);
