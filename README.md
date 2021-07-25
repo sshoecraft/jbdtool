@@ -2,14 +2,13 @@
 JBD BMS linux-based utility
 
 Bluetooth support requires gattlib https://github.com/labapart/gattlib
-Then edit the Makefile and set BLUETOOTH=yes
+build & install the library then edit the Makefile and set BLUETOOTH=yes
 
-MQTT support requires mosquitto - install from mosquitto.org
-Then edit the Makefile and set MQTT=yes
+MQTT support requires the phao.mqtt.c library https://github.com/eclipse/paho.mqtt.c
+build & install the library then edit the Makefile and set MQTT=yes
 
-just edit the Makefile and 
 
-Transports specified exactly as in mybmm.conf
+Transports are specified as:
 
 jbdtool -t transport:target,opt1[,optN]
 
