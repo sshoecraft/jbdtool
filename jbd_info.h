@@ -48,6 +48,7 @@ typedef struct jbd_info jbd_info_t;
 #define JBD_REG_CONFIG  	0x01
 
 #define JBD_FC			3838
+#define JBD_REG_FRESET		0x0A
 #define JBD_REG_DCAP		0x10
 #define JBD_REG_CCAP		0x11
 #define JBD_REG_FULL		0x12
@@ -159,6 +160,7 @@ typedef struct jbd_info jbd_info_t;
 #define JBD_REG_CAPACITY	0xE0
 #define JBD_REG_MOSFET		0xE1
 #define JBD_REG_BALANCE		0xE2
+#define JBD_REG_RESET           0xE3
 #define JBD_REG_ICURCAL		0xAD
 #define JBD_REG_CCURCAL		0xAE
 #define JBD_REG_DCURCAL		0xAF

@@ -21,7 +21,8 @@ LICENSE file in the root directory of this source tree.
 #include "debug.h"
 
 void _bindump(long offset,void *bptr,int len) {
-	char line[128], *buf = bptr;
+	char line[128];
+	unsigned char *buf = bptr;
 	int end;
 	register char *ptr;
 	register int x,y;

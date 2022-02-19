@@ -193,12 +193,12 @@ static int ip_write(void *handle, ...) {
 	buflen = va_arg(ap, int);
 	va_end(ap);
 
-	dprintf(1,"s->sock: %p\n", s->sock);
+	dprintf(4,"s->sock: %p\n", s->sock);
 
 	if (s->sock == INVALID_SOCKET) return -1;
 	if (debug >= 5) bindump("ip_write",buf,buflen);
 	bytes = send(s->sock, buf, buflen, 0);
-	dprintf(1,"bytes: %d\n", bytes);
+	dprintf(4,"bytes: %d\n", bytes);
 	return bytes;
 }
 

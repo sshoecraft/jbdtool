@@ -372,6 +372,7 @@ static int jbd_get_pack(jbd_session_t *s) {
 	pp->cells = data[21];
 	dprintf(2,"cells: %d\n", pp->cells);
 	pp->ntemps = data[22];
+	dprintf(2,"ntemps: %d\n", pp->ntemps);
 
 	/* Temps */
 #define CTEMP(v) ( (v - 2731) / 10 )

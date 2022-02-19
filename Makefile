@@ -68,7 +68,12 @@ endif
 .PHONY: all
 all: $(PROG)
 
-$(PROG): $(OBJS) $(DEPS)
+build:
+	echo "#define BUILD $$(date '+%Y%m%d%H%M')LL" > build.h
+
+main.o: build.h
+
+$(PROG): build $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
 #$(OBJS): Makefile
@@ -111,3 +116,5 @@ push: clean
 pull: clean
 	git reset --hard
 	git pull
+
+

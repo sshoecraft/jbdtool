@@ -18,12 +18,14 @@ LICENSE file in the root directory of this source tree.
 int jbd_eeprom_start(jbd_session_t *s) {
 	uint8_t payload[2] = { 0x56, 0x78 };
 
+	dprintf(2,"opening eemprom...\n");
 	return jbd_rw(s, JBD_CMD_WRITE, JBD_REG_EEPROM, payload, sizeof(payload) );
 }
 
 int jbd_eeprom_end(jbd_session_t *s) {
 	uint8_t payload[2] = { 0x00, 0x00 };
 
+	dprintf(2,"closing eemprom...\n");
 	return jbd_rw(s, JBD_CMD_WRITE, JBD_REG_CONFIG, payload, sizeof(payload) );
 }
 
@@ -36,6 +38,30 @@ int jbd_set_mosfet(jbd_session_t *s, int val) {
 	if (jbd_eeprom_start(s) < 0) return 1;
 	r = jbd_rw(s, JBD_CMD_WRITE, JBD_REG_MOSFET, payload, sizeof(payload));
 	if (jbd_eeprom_end(s) < 0) return 1;
+	return (r < 0 ? 1 : 0);
+}
+
+int jbd_reset(jbd_session_t *s) {
+	uint8_t payload[2];
+	int r;
+
+#if 0
+2021-06-05 16:33:25,846 INFO client 192.168.1.7:45868 -> server pack_01:23 (9 bytes)
+-> 0000   DD 5A E3 02 43 21 FE B7 77                         .Z..C!..w
+2021-06-05 16:33:26,032 INFO client 192.168.1.7:45868 <= server pack_01:23 (7 bytes)
+<= 0000   DD E3 80 00 FF 80 77                               ......w
+2021-06-05 19:34:58,910 INFO client 192.168.1.7:39154 -> server pack_01:23 (9 bytes)
+-> 0000   DD 5A 0A 02 18 81 FF 5B 77                         .Z.....[w
+2021-06-05 19:34:59,150 INFO client 192.168.1.7:39154 <= server pack_01:23 (7 bytes)
+<= 0000   DD 0A 80 00 FF 80 77                               ......w
+#endif
+
+	_putshort(payload,0x4321);
+	r = jbd_rw(s, JBD_CMD_WRITE, JBD_REG_RESET, payload, sizeof(payload));
+	if (!r) {
+		_putshort(payload,0x1881);
+		r = jbd_rw(s, JBD_CMD_WRITE, JBD_REG_FRESET, payload, sizeof(payload));
+	}
 	return (r < 0 ? 1 : 0);
 }
 

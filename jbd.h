@@ -33,5 +33,6 @@ int jbd_rw(jbd_session_t *, uint8_t action, uint8_t reg, uint8_t *data, int data
 void jbd_get_protect(struct jbd_protect *p, unsigned short bits);
 int jbd_can_get_crc(jbd_session_t *s, int id, unsigned char *data, int len);
 int jbd_can_get(jbd_session_t *s, int id, unsigned char *data, int datalen, int chk);
+int jbd_reset(jbd_session_t *s);
 
 #endif

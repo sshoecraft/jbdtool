@@ -31,6 +31,9 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
+#define VERSION "1.7"
+#include "build.h"
+
 int debug = 0;
 
 int outfmt = 0;
@@ -650,6 +653,7 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 }
 
 void usage() {
+	printf("jbtool version %s build %lld\n",VERSION,BUILD);
 	printf("usage: jbdtool [-abcjJrwlh] [-f filename] [-t <module:target> [-o output file]\n");
 	printf("arguments:\n");
 #ifdef DEBUG
@@ -674,6 +678,7 @@ void usage() {
 	printf("  -m <host:clientid:topic[:user[:pass]]> Send results to MQTT broker\n");
 	printf("  -i 		Update interval\n");
 	printf("  -F 		Flatten arrays\n");
+	printf("  -X 		reset BMS\n");
 #endif
 }
 
@@ -724,7 +729,7 @@ int mqtt_init(mybmm_config_t *conf) {
 
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
-	int charge,discharge;
+	int charge,discharge,reset;
 	char *transport,*target,*label,*filename,*outfile,*p,*opts;
 	mybmm_config_t *conf;
 	mybmm_module_t *cp,*tp;
@@ -738,7 +743,7 @@ int main(int argc, char **argv) {
 #endif
 
 	charge = discharge = -1;
-	action = pretty = outfmt = all = reg = dump = flat = 0;
+	action = pretty = outfmt = all = reg = dump = flat = reset = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
@@ -747,7 +752,7 @@ int main(int argc, char **argv) {
 	mqtt = 0;
 	char mqtt_topic[128];
 #endif
-	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:hF")) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:hFX")) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -844,6 +849,9 @@ int main(int argc, char **argv) {
 		case 'F':
 			flat=1;
 			break;
+		case 'X':
+			reset=1;
+			break;
 		case 'h':
 		default:
 			usage();
@@ -914,6 +922,21 @@ int main(int argc, char **argv) {
 		}
 		if (pack.close(pack.handle)) return 1;
 		return i;
+	}
+
+	/* Reset? */
+	dprintf(2,"reset: %d\n", reset);
+	if (reset) {
+		printf("*** RESETTING ***\n");
+		if (pack.open(pack.handle)) return 1;
+		if (jbd_eeprom_start(pack.handle)) {
+			pack.close(pack.handle);
+			return 1;
+		}
+		jbd_reset(pack.handle);
+		jbd_eeprom_end(pack.handle);
+		pack.close(pack.handle);
+		return 1;
 	}
 	
 #ifdef MQTT
@@ -1168,6 +1191,12 @@ int main(int argc, char **argv) {
 						break;
 					case JSONNumber:
 						num = (int)json_value_get_number(value);
+						dprintf(3,"value: %d\n", num);
+						sprintf(temp,"%d",num);
+						p = temp;
+						break;
+					case JSONBoolean:
+						num = (int)json_value_get_boolean(value);
 						dprintf(3,"value: %d\n", num);
 						sprintf(temp,"%d",num);
 						p = temp;

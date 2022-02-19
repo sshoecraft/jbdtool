@@ -25,21 +25,8 @@
 //#define MYBMM_INSTANCE_NAME_LEN	32
 //#define MYBMM_TRANSPORT_NAME_LEN 8
 
-/* Forward dec */
-#if 0
-struct mybmm_module;
-typedef struct mybmm_module mybmm_module_t;
-
-typedef int (*mybmm_module_open_t)(void *);
-typedef int (*mybmm_module_read_t)(void *,...);
-typedef int (*mybmm_module_write_t)(void *,...);
-typedef int (*mybmm_module_close_t)(void *);
-typedef int (*mybmm_module_control_t)(void *,...);
-#endif
-
 #include "config.h"
 #include "module.h"
-#include "inverter.h"
 #include "pack.h"
 
 #define MYBMM_TARGET_LEN 32
