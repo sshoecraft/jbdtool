@@ -1,6 +1,6 @@
 
 DEBUG=yes
-BLUETOOTH=yes
+BLUETOOTH=no
 MQTT=yes
 
 ifeq ($(TARGET),win32)
@@ -53,7 +53,15 @@ endif
 ifneq ($(WINDOWS),yes)
 ifeq ($(BLUETOOTH),yes)
 	CFLAGS+=-DBLUETOOTH
-	LIBS+=-lgattlib -lgobject-2.0 -lgio-2.0 -lglib-2.0
+	LIBS+=-lgattlib -lgio-2.0 -lgobject-2.0 -lgmodule-2.0 -lglib-2.0
+	# XXX in order to static link on my RPI4 64-bit debian 11 box
+	# download https://github.com/util-linux/util-linux
+	# ./configure --disable-shared --enable-static
+	# make
+	# cp ./.libs/libmount.a /usr/lib/aarch64-linux-gnu/
+	ifeq ($(STATIC),yes)
+		LIBS+=-lffi -lpcre -lpthread -lmount -ldl -lblkid -lresolv -lz -lselinux
+	endif
 endif
 endif
 
@@ -68,12 +76,7 @@ endif
 .PHONY: all
 all: $(PROG)
 
-build:
-	echo "#define BUILD $$(date '+%Y%m%d%H%M')LL" > build.h
-
-main.o: build.h
-
-$(PROG): build $(OBJS) $(DEPS)
+$(PROG): $(OBJS) $(DEPS)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $(PROG) $(OBJS) $(LIBS)
 
 #$(OBJS): Makefile
@@ -87,6 +90,11 @@ COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 %.o : %.c
 %.o : %.c $(DEPDIR)/%.d | $(DEPDIR)
 	$(COMPILE.c) $(OUTPUT_OPTION) $<
+
+main.o: $(SRCS)
+	@mkdir -p .deps
+	@echo "#define BUILD $$(date '+%Y%m%d%H%M')LL" > build.h
+	$(COMPILE.c) main.c
 
 $(DEPDIR): ; @mkdir -p $@
 
@@ -102,7 +110,7 @@ install: $(PROG)
 	sudo install -m 755 -o bin -g bin $(PROG) /usr/bin/$(PROG)
 
 clean:
-	rm -rf $(PROG) $(OBJS) $(CLEANFILES)
+	rm -rf $(PROG) $(OBJS) $(CLEANFILES) build.h
 
 zip: $(PROG)
 	rm -f jbdtool_$(TARGET)_static.zip
