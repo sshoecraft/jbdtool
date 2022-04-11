@@ -870,7 +870,11 @@ int main(int argc, char **argv) {
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	/* Lock the target */
-	sprintf(lockfile,"/tmp/%s", target);
+	p = strrchr(target,'/');
+	if (p)
+		sprintf(lockfile,"/tmp/%s.lock", p+1);
+	else
+		sprintf(lockfile,"/tmp/%s.lock", target);
 	dprintf(2,"lockfile: %s\n", lockfile);
 	lockfd = lock_file(lockfile,(dont_wait ? 0 : 1));
 	dprintf(2,"lockfd: %d\n", lockfd);
