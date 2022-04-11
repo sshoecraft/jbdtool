@@ -660,7 +660,7 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 #endif
 
 void usage() {
-	printf("jbtool version %s build %lld\n",VERSION,BUILD);
+	printf("jbdtool version %s build %lld\n",VERSION,BUILD);
 	printf("usage: jbdtool [-abcjJFrwlhXN] [-f filename] [-t <module:target>] [-o output file]" MQTT_OPTS "\n");
 	printf("arguments:\n");
 #ifdef DEBUG

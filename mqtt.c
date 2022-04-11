@@ -17,7 +17,7 @@ LICENSE file in the root directory of this source tree.
 
 #define TIMEOUT 10000L
 
-#define MQTT 1
+#define MQTT_5 0
 
 struct mqtt_session {
 	mqtt_config_t config;
@@ -137,7 +137,11 @@ int mqtt_newclient(struct mqtt_session *s) {
 	MQTTClient_createOptions opts = MQTTClient_createOptions_initializer;
 	int rc;
 
+#if MQTT_5
 	opts.MQTTVersion = MQTTVERSION_5;
+#else
+	opts.MQTTVersion = MQTTVERSION_3_1;
+#endif
 //	rc = MQTTClient_create(&s->c, s->config.host, s->config.clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL);
 	rc = MQTTClient_createWithOptions(&s->c, s->config.host, s->config.clientid, MQTTCLIENT_PERSISTENCE_NONE, NULL, &opts);
 	dprintf(2,"create rc: %d\n", rc);
@@ -187,19 +191,27 @@ struct mqtt_session *mqtt_new(mqtt_config_t *conf, mqtt_callback_t *cb, void *ct
 }
 
 int mqtt_connect(mqtt_session_t *s, int interval) {
+#if MQTT_5
 	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer5;
-	MQTTClient_willOptions will_opts = MQTTClient_willOptions_initializer;
 	MQTTResponse response = MQTTResponse_initializer;
+#else
+	MQTTClient_connectOptions conn_opts = MQTTClient_connectOptions_initializer;
+#endif
+	MQTTClient_willOptions will_opts = MQTTClient_willOptions_initializer;
 	int rc;
 
 	if (!s) return 1;
 
 	dprintf(2,"interval: %d\n", interval);
 
+#if MQTT_5
 	conn_opts.MQTTVersion = MQTTVERSION_5;
-	conn_opts.keepAliveInterval = interval;
-//	conn_opts.cleansession = 1;
 	conn_opts.cleanstart = 1;
+#else
+	conn_opts.MQTTVersion = MQTTVERSION_3_1;
+	conn_opts.cleansession = 1;
+#endif
+	conn_opts.keepAliveInterval = interval;
 	conn_opts.ssl = s->ssl_opts;
 	if (strlen(s->config.lwt_topic)) {
 		will_opts.topicName = s->config.lwt_topic;
@@ -215,8 +227,12 @@ int mqtt_connect(mqtt_session_t *s, int interval) {
 		if (strlen(s->config.pass))
 			conn_opts.password = s->config.pass;
 	}
+#if MQTT_5
 	response = MQTTClient_connect5(s->c, &conn_opts, 0, 0);
 	rc = response.reasonCode;
+#else
+	rc = MQTTClient_connect(s->c, &conn_opts);
+#endif
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) {
 		if (rc == 5) {
@@ -239,7 +255,11 @@ int mqtt_disconnect(mqtt_session_t *s, int timeout) {
 	dprintf(2,"timeout: %d\n", timeout);
 
 	if (!s) return 1;
+#if MQTT_5
 	rc = MQTTClient_disconnect5(s->c, timeout, MQTTREASONCODE_SUCCESS, 0);
+#else
+	rc = MQTTClient_disconnect(s->c, timeout);
+#endif
 	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
