@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.7"
+#define VERSION "1.8"
 #include "build.h"
 
 int debug = 0;
@@ -870,11 +870,13 @@ int main(int argc, char **argv) {
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
 	/* Lock the target */
-	p = strrchr(target,'/');
-	if (p)
-		sprintf(lockfile,"/tmp/%s.lock", p+1);
-	else
-		sprintf(lockfile,"/tmp/%s.lock", target);
+	for(p = target + strlen(target); p >= target; p--) {
+		if (*p != 0 && !isalnum(*p) && *p != '_' && *p != '-') {
+			break;
+		}
+	}
+	dprintf(2,"p: %p, target: %p\n", p, target);
+	sprintf(lockfile,"/tmp/%s.lock", p+1);
 	dprintf(2,"lockfile: %s\n", lockfile);
 	lockfd = lock_file(lockfile,(dont_wait ? 0 : 1));
 	dprintf(2,"lockfd: %d\n", lockfd);
