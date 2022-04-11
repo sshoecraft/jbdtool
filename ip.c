@@ -176,7 +176,6 @@ static int ip_read(void *handle, ...) {
 			if (buflen < 1) break;
 		}
 	}
-	dprintf(1,"debug: %d\n", debug);
 	if (debug >= 5) bindump("ip_read",buf,bidx);
 	dprintf(5,"returning: %d\n", bidx);
 	return bidx;

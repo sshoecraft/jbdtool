@@ -551,7 +551,6 @@ void display_info(jbd_info_t *info) {
 			mask <<= 1;
 		}
 		bits[i] = 0;
-		dprintf(1,"balance: %s\n",bits);
 		dstr("Balance","%s",bits);
 	}
 	dfloat("CellTotal","%.3f",info->cell_total);
@@ -652,9 +651,17 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
 }
 
+#ifdef MQTT
+#define MQTT_OPTS " [-m <mqtt_info>] [-i <mqtt_update_interval>]"
+#define MQTT_GETOPT "m:i:"
+#else
+#define MQTT_OPTS ""
+#define MQTT_GETOPT ""
+#endif
+
 void usage() {
 	printf("jbtool version %s build %lld\n",VERSION,BUILD);
-	printf("usage: jbdtool [-abcjJrwlh] [-f filename] [-t <module:target> [-o output file]\n");
+	printf("usage: jbdtool [-abcjJFrwlhXN] [-f filename] [-t <module:target>] [-o output file]" MQTT_OPTS "\n");
 	printf("arguments:\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
@@ -664,6 +671,7 @@ void usage() {
 	printf("  -G <on|off>	discharging on/off\n");
 	printf("  -j		JSON output\n");
 	printf("  -J		JSON output pretty print\n");
+	printf("  -F 		Flatten JSON arrays\n");
 	printf("  -r		read parameters\n");
 	printf("  -a		read all parameters\n");
 	printf("  -w		write parameters\n");
@@ -677,55 +685,10 @@ void usage() {
 #ifdef MQTT
 	printf("  -m <host:clientid:topic[:user[:pass]]> Send results to MQTT broker\n");
 	printf("  -i 		Update interval\n");
-	printf("  -F 		Flatten arrays\n");
+#endif
 	printf("  -X 		reset BMS\n");
-#endif
+	printf("  -N 		dont wait if locked\n");
 }
-
-#ifdef MQTT
-#define MQTT_GETOPT "m:i:"
-#else
-#define MQTT_GETOPT ""
-#endif
-
-#if 0
-#ifdef MQTT
-int mqtt_init(mybmm_config_t *conf) {
-        /* MQTT Init */
-        dprintf(1,"host: %s, clientid: %s, user: %s, pass: %s\n",
-                conf->mqtt_config.host, conf->mqtt_config.clientid, conf->mqtt_config.user, conf->mqtt_config.pass);
-        if (!strlen(conf->mqtt_config.host)) {
-                log_write(LOG_WARNING,"mqtt host not specified, using localhost\n");
-                strcpy(conf->mqtt_config.host,"localhost");
-        }
-
-        /* MQTT requires a unique ClientID for connections */
-        if (!strlen(conf->mqtt_config.clientid)) {
-                uint8_t uuid[16];
-
-                dprintf(1,"gen'ing MQTT ClientID...\n");
-                uuid_generate_random(uuid);
-                my_uuid_unparse(uuid, conf->mqtt_config.clientid);
-                dprintf(4,"clientid: %s\n",conf->mqtt_config.clientid);
-        }
-
-        /* Create LWT topic */
-        agent_mktopic(conf->mqtt_config.lwt_topic,sizeof(conf->mqtt_config.lwt_topic)-1,ap,conf->instance_name,
-                "Status",0,0);
-//      sprintf(conf->mqtt_config.lwt_topic,"%s/%s/%s/%s",SOLARD_TOPIC_ROOT,conf->role->name,conf->instance_name,SOLARD_FUNC_STATUS);
-
-        /* Create MQTT session */
-        conf->m = mqtt_new(&conf->mqtt_config, solard_getmsg, conf->mq);
-
-        /* Callback - must be done before connect */
-//      if (mqtt_setcb(conf->m,ap,0,agent_callback0)) return 0;
-
-        /* Connect to the server */
-        if (mqtt_connect(conf->m,20)) goto agent_init_error;
-}
-#endif
-#endif
-
 
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
@@ -741,9 +704,11 @@ int main(int argc, char **argv) {
 	int interval;
 	char *mqtt;
 #endif
+	char lockfile[256];
+	int lockfd,dont_wait;
 
 	charge = discharge = -1;
-	action = pretty = outfmt = all = reg = dump = flat = reset = 0;
+	action = pretty = outfmt = all = reg = dump = flat = reset = dont_wait = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
@@ -752,7 +717,7 @@ int main(int argc, char **argv) {
 	mqtt = 0;
 	char mqtt_topic[128];
 #endif
-	while ((opt=getopt(argc, argv, "+acDg:G:d:nt:e:f:R:jJo:rwlm:i:hFX")) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nNt:e:f:R:jJo:rwlhFX" MQTT_GETOPT)) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -814,6 +779,9 @@ int main(int argc, char **argv) {
 			break;
                 case 'n':
 			dont_interpret = 1;
+			break;
+                case 'N':
+			dont_wait = 1;
 			break;
                 case 't':
 			transport = optarg;
@@ -900,6 +868,16 @@ int main(int argc, char **argv) {
 		if (!opts) opts = p;
 	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
+
+	/* Lock the target */
+	sprintf(lockfile,"/tmp/%s", target);
+	dprintf(2,"lockfile: %s\n", lockfile);
+	lockfd = lock_file(lockfile,(dont_wait ? 0 : 1));
+	dprintf(2,"lockfd: %d\n", lockfd);
+	if (lockfd < 0) {
+		log_error("unable to lock target");
+		return 1;
+	}
 
 	/* If setting charge or discharge do that here */
 	dprintf(2,"charge: %d, discharge: %d\n", charge, discharge);
@@ -1285,6 +1263,8 @@ int main(int argc, char **argv) {
 	sleep(interval);
     } while(interval);
 #endif
+	dprintf(2,"unlocking target\n");
+	unlock_file(lockfd);
 	json_value_free(root_value);
 	fclose(outfp);
 

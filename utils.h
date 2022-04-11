@@ -45,4 +45,7 @@ char *log_nextname(void);
 
 #define lprintf(mask, format, args...) log_write(mask,format,## args)
 
+int lock_file(char *, int);
+void unlock_file(int);
+
 #endif

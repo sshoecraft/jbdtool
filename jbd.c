@@ -41,7 +41,7 @@ static uint16_t jbd_crc(unsigned char *data, int len) {
 	return crc;
 }
 
-static int jbd_verify(uint8_t *buf, int len) {
+static int jbd_verify(uint8_t *buf, int len, uint8_t reg) {
 	uint16_t my_crc,pkt_crc;
 	int i,data_length;
 
@@ -55,8 +55,8 @@ static int jbd_verify(uint8_t *buf, int len) {
 	dprintf(5,"start bit: %x\n", buf[i]);
 	if (buf[i++] != 0xDD) return 1;
 	/* 1: Register */
-	dprintf(5,"register: %x\n", buf[i]);
-	i++;
+	dprintf(5,"register: %x, wanted: %x\n", buf[i], reg);
+	if (buf[i++] != reg) return 1;
 	/* 2: Status */
 	dprintf(5,"status: %d\n", buf[i]);
 //	if (buf[i++] != 0) return 1;
@@ -85,7 +85,7 @@ static int jbd_verify(uint8_t *buf, int len) {
 	return 0;
 }
 
-static int jbd_cmd(uint8_t *pkt, int pkt_size, int action, uint16_t reg, uint8_t *data, int data_len) {
+static int jbd_cmd(uint8_t *pkt, int pkt_size, int action, uint8_t reg, uint8_t *data, int data_len) {
 	unsigned short crc;
 	int idx;
 
@@ -298,7 +298,7 @@ int jbd_rw(jbd_session_t *s, uint8_t action, uint8_t reg, uint8_t *data, int dat
 	if (debug >= 5) bindump("cmd",cmd,cmdlen);
 
 	/* Read the data */
-	retries=3;
+	retries=5;
 	while(1) {
 		dprintf(5,"retries: %d\n", retries);
 		if (!retries--) {
@@ -312,7 +312,7 @@ int jbd_rw(jbd_session_t *s, uint8_t action, uint8_t reg, uint8_t *data, int dat
 		bytes = s->tp->read(s->tp_handle,buf,sizeof(buf));
 		dprintf(5,"bytes: %d\n", bytes);
 		if (bytes < 0) return -1;
-		if (!jbd_verify(buf,bytes)) break;
+		if (!jbd_verify(buf,bytes,reg)) break;
 		sleep(1);
 	}
 	memcpy(data,&buf[4],buf[3]);

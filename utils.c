@@ -13,6 +13,8 @@ LICENSE file in the root directory of this source tree.
 #include <errno.h>
 #include <time.h>
 #include <stdarg.h>
+#include <fcntl.h>
+#include <unistd.h>
 #ifdef DEBUG
 #undef DEBUG
 #endif
@@ -389,4 +391,32 @@ int log_write(int type,char *format,...) {
 	fprintf(logfp,"%s\n",message);
 	fflush(logfp);
 	return 0;
+}
+
+int lock_file(char *path, int wait) {
+	struct flock fl;
+	int fd,op;
+
+	fd = open(path, O_CREAT|O_RDWR, 0666);
+	if (fd < 0) {
+		log_syserror("lock_file: open(%s)",path);
+		return -1;
+	}
+
+	fl.l_type = F_WRLCK;
+	fl.l_whence = SEEK_SET;
+	fl.l_start = 0;
+	fl.l_len = 1;
+	op = (wait ? F_SETLKW : F_SETLK);
+	if (fcntl(fd,op,&fl) < 0) {
+		log_syserror("lock_file: fcntl");
+		close(fd);
+		return -1;
+	}
+	return fd;
+}
+
+void unlock_file(int fd) {
+	close(fd);
+	return;
 }
