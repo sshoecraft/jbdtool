@@ -393,6 +393,7 @@ int log_write(int type,char *format,...) {
 	return 0;
 }
 
+#ifndef WINDOWS
 int lock_file(char *path, int wait) {
 	struct flock fl;
 	int fd,op;
@@ -420,3 +421,4 @@ void unlock_file(int fd) {
 	close(fd);
 	return;
 }
+#endif

@@ -869,6 +869,7 @@ int main(int argc, char **argv) {
 	}
 	if (init_pack(&pack,conf,"jbd",transport,target,opts,cp,tp)) return 1;
 
+#ifndef WINDOWS
 	/* Lock the target */
 	for(p = target + strlen(target); p >= target; p--) {
 		if (*p != 0 && !isalnum(*p) && *p != '_' && *p != '-') {
@@ -884,6 +885,7 @@ int main(int argc, char **argv) {
 		log_error("unable to lock target");
 		return 1;
 	}
+#endif
 
 	/* If setting charge or discharge do that here */
 	dprintf(2,"charge: %d, discharge: %d\n", charge, discharge);
@@ -1269,8 +1271,10 @@ int main(int argc, char **argv) {
 	sleep(interval);
     } while(interval);
 #endif
+#ifndef WINDOWS
 	dprintf(2,"unlocking target\n");
 	unlock_file(lockfd);
+#endif
 	json_value_free(root_value);
 	fclose(outfp);
 

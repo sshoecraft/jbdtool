@@ -10,6 +10,28 @@ MQTT support requires the phao.mqtt.c library https://github.com/eclipse/paho.mq
 build & install the library then edit the Makefile and set MQTT=yes
 
 
+To build MQTT - paho.mqtt.c (https://github.com/eclipse/paho.mqtt.c.git)
+
+        mkdir -p build && cd build
+        cmake -DPAHO_BUILD_SHARED=TRUE -DPAHO_BUILD_STATIC=TRUE -DPAHO_ENABLE_TESTING=FALSE -DPAHO_BUILD_SAMPLES=FALSE ..
+        make && make install
+
+To build gattlib (https://github.com/labapart/gattlib.git)
+
+        mkdir -p build && cd build
+        cmake -DGATTLIB_BUILD_EXAMPLES=NO -DGATTLIB_SHARED_LIB=NO -DGATTLIB_BUILD_DOCS=NO -DGATTLIB_PYTHON_INTERFACE=NO ..
+        make && make install
+
+IF USING BLUETOOTH, YOU MUST PAIR THE DEVICE FIRST
+
+        $ bluetoothctl
+        # scan on
+        (look for your device)
+        [NEW] Device XX:XX:XX:XX:XX:XX name
+        # trust XX:XX:XX:XX:XX:XX
+        # pair XX:XX:XX:XX:XX:XX
+        (it may ask for your passkey)
+
 
 Transports are specified as:
 

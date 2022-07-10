@@ -5,12 +5,12 @@ MQTT=yes
 
 ifeq ($(TARGET),win32)
 	CC = /usr/bin/i686-w64-mingw32-gcc
-	CFLAGS+=-D_WIN32
+	CFLAGS+=-D_WIN32 -DWINDOWS
 	WINDOWS=yes
 	EXT=.exe
 else ifeq ($(TARGET),win64)
 	CC = /usr/bin/x86_64-w64-mingw32-gcc
-	CFLAGS+=-D_WIN64
+	CFLAGS+=-D_WIN64 -DWINDOWS
 	WINDOWS=yes
 	EXT=.exe
 else ifeq ($(TARGET),pi)
