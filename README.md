@@ -37,7 +37,6 @@ Transports are specified as:
 
 jbdtool -t transport:target,opt1[,optN]
 
-
 For CAN:
 
 jbdtool -t can:device[,speed]
@@ -56,7 +55,7 @@ example:
 
 For Bluetooth:
 
-jbdtool -t bt:mac addr [-e desc]
+jbdtool -t bt:mac,descriptor
 
 exmples:
 
