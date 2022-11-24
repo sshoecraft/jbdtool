@@ -275,7 +275,9 @@ int mqtt_pub(mqtt_session_t *s, char *topic, char *message, int retain) {
 	MQTTClient_message pubmsg = MQTTClient_message_initializer;
 	MQTTClient_deliveryToken token;
 	MQTTProperty property;
+#if MQTT_5
 	MQTTResponse response = MQTTResponse_initializer;
+#endif
 	int rc;
 
 	dprintf(2,"topic: %s, message: %s\n", topic, message);
@@ -298,9 +300,13 @@ int mqtt_pub(mqtt_session_t *s, char *topic, char *message, int retain) {
 	pubmsg.qos = 2;
 	pubmsg.retained = retain;
 	token = 0;
+#if MQTT_5
 	response = MQTTClient_publishMessage5(s->c, topic, &pubmsg, &token);
 	rc = response.reasonCode;
 	MQTTResponse_free(response);
+#else
+	rc = MQTTClient_publishMessage(s->c, topic, &pubmsg, &token);
+#endif
 	rc = MQTTClient_waitForCompletion(s->c, token, TIMEOUT);
 	dprintf(2,"rc: %d\n", rc);
 	if (rc != MQTTCLIENT_SUCCESS) return 1;
@@ -320,16 +326,22 @@ int mqtt_setcb(mqtt_session_t *s, void *ctx, MQTTClient_connectionLost *cl, MQTT
 }
 
 int mqtt_sub(mqtt_session_t *s, char *topic) {
+#if MQTT_5
 	MQTTSubscribe_options opts = MQTTSubscribe_options_initializer;
 	MQTTResponse response = MQTTResponse_initializer;
+#endif
 	int rc;
 
-	opts.noLocal = 1;
 	dprintf(2,"s: %p, topic: %s\n", s, topic);
+#if MQTT_5
+	opts.noLocal = 1;
 	response = MQTTClient_subscribe5(s->c, topic, 1, &opts, 0);
 	rc = response.reasonCode;
-	if (rc == MQTTREASONCODE_GRANTED_QOS_1) rc = 0;
 	MQTTResponse_free(response);
+#else
+	rc = MQTTClient_subscribe(s->c, topic, 1);
+#endif
+	if (rc == MQTTREASONCODE_GRANTED_QOS_1) rc = 0;
 	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
@@ -351,12 +363,19 @@ int mqtt_submany(mqtt_session_t *s, int count, char **topic) {
 }
 
 int mqtt_unsub(mqtt_session_t *s, char *topic) {
+#if MQTT_5
 	MQTTResponse response = MQTTResponse_initializer;
+#endif
 	int rc;
 
 	dprintf(2,"s: %p, topic: %s\n", s, topic);
+#if MQTT_5
 	response = MQTTClient_unsubscribe5(s->c, topic, 0);
 	rc = response.reasonCode;
+	MQTTResponse_free(response);
+#else
+	rc = MQTTClient_unsubscribe(s->c, topic);
+#endif
 	dprintf(2,"rc: %d\n", rc);
 	return rc;
 }
