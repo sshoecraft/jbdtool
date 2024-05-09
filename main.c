@@ -53,7 +53,8 @@ int flat = 0;
 enum JBD_PARM_DT {
 	JBD_PARM_DT_UNK,
 	JBD_PARM_DT_INT,		/* Std int/number */
-	JBD_PARM_DT_FLOAT,		/* floating pt */
+	JBD_PARM_DT_UINT,       /* Std unsigned/number */
+    JBD_PARM_DT_FLOAT,		/* floating pt */
 	JBD_PARM_DT_STR,		/* string */
 	JBD_PARM_DT_TEMP,		/* temp */
 	JBD_PARM_DT_DATE,		/* date */
@@ -96,14 +97,14 @@ struct jbd_params {
 	int dt;
 } params[] = {
 //	{ JBD_FC,"FileCode",0 },
-	{ JBD_REG_DCAP,"DesignCapacity", JBD_PARM_DT_INT },
-	{ JBD_REG_CCAP,"CycleCapacity", JBD_PARM_DT_INT },
-	{ JBD_REG_FULL,"FullChargeVol", JBD_PARM_DT_INT },
-	{ JBD_REG_EMPTY,"ChargeEndVol", JBD_PARM_DT_INT },
+	{ JBD_REG_DCAP,"DesignCapacity", JBD_PARM_DT_UINT },
+	{ JBD_REG_CCAP,"CycleCapacity", JBD_PARM_DT_UINT },
+	{ JBD_REG_FULL,"FullChargeVol", JBD_PARM_DT_UINT },
+	{ JBD_REG_EMPTY,"ChargeEndVol", JBD_PARM_DT_UINT },
 	{ JBD_REG_RATE,"DischargingRate", JBD_PARM_DT_PCT },
 	{ JBD_REG_MFGDATE,"ManufactureDate", JBD_PARM_DT_DATE },
-	{ JBD_REG_SERIAL,"SerialNumber", JBD_PARM_DT_INT },
-	{ JBD_REG_CYCLE,"CycleCount", JBD_PARM_DT_INT },
+	{ JBD_REG_SERIAL,"SerialNumber", JBD_PARM_DT_UINT },
+	{ JBD_REG_CYCLE,"CycleCount", JBD_PARM_DT_UINT },
 	{ JBD_REG_CHGOT,"ChgOverTemp", JBD_PARM_DT_TEMP },
 	{ JBD_REG_RCHGOT,"ChgOTRelease", JBD_PARM_DT_TEMP },
 	{ JBD_REG_CHGUT,"ChgLowTemp", JBD_PARM_DT_TEMP },
@@ -112,30 +113,30 @@ struct jbd_params {
 	{ JBD_REG_RDSGOT,"DsgOTRelease", JBD_PARM_DT_TEMP },
 	{ JBD_REG_DSGUT,"DisLowTemp", JBD_PARM_DT_TEMP },
 	{ JBD_REG_RDSGUT,"DsgUTRelease", JBD_PARM_DT_TEMP },
-	{ JBD_REG_POVP,"PackOverVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_RPOVP,"PackOVRelease", JBD_PARM_DT_INT },
-	{ JBD_REG_PUVP,"PackUnderVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_RPUVP,"PackUVRelease", JBD_PARM_DT_INT },
-	{ JBD_REG_COVP,"CellOverVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_RCOVP,"CellOVRelease", JBD_PARM_DT_INT },
-	{ JBD_REG_CUVP,"CellUnderVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_RCUVP,"CellUVRelease", JBD_PARM_DT_INT },
+	{ JBD_REG_POVP,"PackOverVoltage", JBD_PARM_DT_UINT },
+	{ JBD_REG_RPOVP,"PackOVRelease", JBD_PARM_DT_UINT },
+	{ JBD_REG_PUVP,"PackUnderVoltage", JBD_PARM_DT_UINT },
+	{ JBD_REG_RPUVP,"PackUVRelease", JBD_PARM_DT_UINT },
+	{ JBD_REG_COVP,"CellOverVoltage", JBD_PARM_DT_UINT },
+	{ JBD_REG_RCOVP,"CellOVRelease", JBD_PARM_DT_UINT },
+	{ JBD_REG_CUVP,"CellUnderVoltage", JBD_PARM_DT_UINT },
+	{ JBD_REG_RCUVP,"CellUVRelease", JBD_PARM_DT_UINT },
 	{ JBD_REG_CHGOC,"OverChargeCurrent", JBD_PARM_DT_INT },
 	{ JBD_REG_DSGOC,"OverDisCurrent", JBD_PARM_DT_INT },
-	{ JBD_REG_BALVOL,"BalanceStartVoltage", JBD_PARM_DT_INT },
+	{ JBD_REG_BALVOL,"BalanceStartVoltage", JBD_PARM_DT_UINT },
 	{ JBD_REG_BALPREC,"BalanceWindow", JBD_PARM_DT_INT },
-	{ JBD_REG_CURRES,"SenseResistor", JBD_PARM_DT_INT },
+	{ JBD_REG_CURRES,"SenseResistor", JBD_PARM_DT_UINT },
 	{ JBD_REG_FUNCMASK,"BatteryConfig", JBD_PARM_DT_FUNC },
 	{ JBD_REG_NTCMASK,"NtcConfig", JBD_PARM_DT_NTC },
-	{ JBD_REG_STRINGS,"PackNum", JBD_PARM_DT_INT },
-	{ JBD_REG_FETTIME,"fet_ctrl_time_set", JBD_PARM_DT_INT },
-	{ JBD_REG_LEDTIME,"led_disp_time_set", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP80,"VoltageCap80", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP60,"VoltageCap60", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP40,"VoltageCap40", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP20,"VoltageCap20", JBD_PARM_DT_INT },
-	{ JBD_REG_HCOVP,"HardCellOverVoltage", JBD_PARM_DT_INT },
-	{ JBD_REG_HCUVP,"HardCellUnderVoltage", JBD_PARM_DT_INT },
+	{ JBD_REG_STRINGS,"PackNum", JBD_PARM_DT_UINT },
+	{ JBD_REG_FETTIME,"fet_ctrl_time_set", JBD_PARM_DT_UINT },
+	{ JBD_REG_LEDTIME,"led_disp_time_set", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP80,"VoltageCap80", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP60,"VoltageCap60", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP40,"VoltageCap40", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP20,"VoltageCap20", JBD_PARM_DT_UINT },
+	{ JBD_REG_HCOVP,"HardCellOverVoltage", JBD_PARM_DT_UINT },
+	{ JBD_REG_HCUVP,"HardCellUnderVoltage", JBD_PARM_DT_UINT },
 	{ JBD_REG_HCOC,"DoubleOCSC", JBD_PARM_DT_DOUBLE },
 	{ JBD_REG_HCOC,"SCValue", JBD_PARM_DT_SCVAL },
 	{ JBD_REG_HCOC,"SCDelay", JBD_PARM_DT_SCDELAY },
@@ -161,12 +162,12 @@ struct jbd_params {
 	{ JBD_REG_BARCODE,"BarCode", JBD_PARM_DT_STR },
 	{ JBD_REG_GPSOFF,"GPS_VOL", JBD_PARM_DT_INT },
 	{ JBD_REG_GPSOFFTIME,"GPS_TIME", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP90,"VoltageCap90", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP70,"VoltageCap70", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP50,"VoltageCap50", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP30,"VoltageCap30", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP10,"VoltageCap10", JBD_PARM_DT_INT },
-	{ JBD_REG_VOLCAP100,"VoltageCap100", JBD_PARM_DT_INT },
+	{ JBD_REG_VOLCAP90,"VoltageCap90", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP70,"VoltageCap70", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP50,"VoltageCap50", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP30,"VoltageCap30", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP10,"VoltageCap10", JBD_PARM_DT_UINT },
+	{ JBD_REG_VOLCAP100,"VoltageCap100", JBD_PARM_DT_UINT },
 	{ JBD_REG_MOSFET,"Mosfet", JBD_PARM_DT_INT },
 	{ 0,0,0 }
 };
@@ -206,6 +207,28 @@ void dint(char *label, char *format, int val) {
 	}
 }
 #define _dint(l,v) dint(l,"%d",v)
+
+void duint(char *label, char *format, int val) {
+    char temp[128];
+
+    dprintf(3,"label: %s, val: %u\n", label, val);
+    switch(outfmt) {
+    case 2:
+        json_object_set_number(root_object, label, val);
+        break;
+    case 1:
+        sprintf(temp,"%%s,%s\n",format);
+        dprintf(3,"temp: %s\n", temp);
+        fprintf(outfp,temp,label,val);
+        break;
+    default:
+        sprintf(temp,"%%-25s %s\n",format);
+        dprintf(3,"temp: %s\n", temp);
+        fprintf(outfp,temp,label,val);
+        break;
+    }
+}
+#define _duint(l,v) duint(l,"%u",v)
 
 void dbool(char *label, int val) {
 	dprintf(3,"label: %s, val: %d\n", label, val);
@@ -315,6 +338,8 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 
 	dprintf(3,"label: %s, dt: %d\n", label, dt);
 	switch(dt) {
+    case JBD_PARM_DT_UINT:
+        _duint(label,(int)_getshort(data));
 	case JBD_PARM_DT_INT:
 	case JBD_PARM_DT_TEMP:
 	case JBD_PARM_DT_DATE:
@@ -420,56 +445,56 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 			dprintf(1,"data[1]: %02x\n", data[1]);
 
 			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
+			_duint(label,vals[i]);
 		}
 		break;
 	case JBD_PARM_DT_SCVAL:
 		if (dont_interpret) {
-			_dint(label,data[0] & 0x07);
+			_duint(label,data[0] & 0x07);
 		} else {
 			int vals[] = { 22,33,44,56,67,78,89,100 };
 			int i = data[0] & 0x07;
 			dprintf(1,"data[0]: %02x\n", data[0]);
 			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
+			_duint(label,vals[i]);
 		}
 		break;
 	case JBD_PARM_DT_SCDELAY:
 		if (dont_interpret) {
-			_dint(label,(data[0] >> 3) & 0x03);
+			_duint(label,(data[0] >> 3) & 0x03);
 		} else {
 			int vals[] = {  70,100,200,400 };
 			int i = (data[0] >> 3) & 0x03;
 			dprintf(1,"data[0]: %02x\n", data[0]);
 
 			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
+			_duint(label,vals[i]);
 		}
 		break;
 	case JBD_PARM_DT_HCOVPDELAY:
 		if (dont_interpret) {
-			_dint(label,(data[0] >> 4) & 0x03);
+			_duint(label,(data[0] >> 4) & 0x03);
 		} else {
 			int vals[] = {  1,2,4,8 };
 			int i = (data[0] >> 4) & 0x03;
 			dprintf(1,"data[0]: %02x\n", data[0]);
 
 			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
+			_duint(label,vals[i]);
 		}
         
 
 		break;
 	case JBD_PARM_DT_HCUVPDELAY:
 		if (dont_interpret) {
-			_dint(label,(data[0] >> 6) & 0x03);
+			_duint(label,(data[0] >> 6) & 0x03);
 		} else {
 			int vals[] = {  1,4,8,16 };
 			int i = (data[0] >> 6) & 0x03;
 			dprintf(1,"data[0]: %02x\n", data[0]);
 
 			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
+			_duint(label,vals[i]);
 		}
 		break;
 	}
@@ -484,10 +509,10 @@ void display_info(jbd_info_t *info) {
 	dfloat("Current","%.3f",info->current);
 	dfloat("DesignCapacity","%.3f",info->fullcap);
 	dfloat("RemainingCapacity","%.3f",info->capacity);
-	_dint("PercentCapacity",info->pctcap);
-	_dint("CycleCount",info->cycles);
-	_dint("Probes",info->probes);
-	_dint("Strings",info->strings);
+	_duint("PercentCapacity",info->pctcap);
+	_duint("CycleCount",info->cycles);
+	_duint("Probes",info->probes);
+	_duint("Strings",info->strings);
 	if (flat) {
 		for(i=0; i < info->probes; i++) {
 			sprintf(label,"temp_%02d",i);
@@ -562,7 +587,7 @@ void display_info(jbd_info_t *info) {
 	_dstr("ManufactureDate",info->mfgdate);
 	dfloat("Version","%.1f",info->version);
 	if (dont_interpret) {
-		_dint("FET",info->fetstate);
+		_duint("FET",info->fetstate);
 	} else {
 		temp[0] = 0;
 		p = temp;
@@ -623,6 +648,7 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	len = 2;
 	dprintf(3,"dt: %d\n", pp->dt);
 	switch(pp->dt) {
+    case JBD_PARM_DT_UINT:
 	case JBD_PARM_DT_INT:
 	case JBD_PARM_DT_TEMP:
 	case JBD_PARM_DT_DATE:
