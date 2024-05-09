@@ -174,7 +174,7 @@ int jbd_eeprom_end(jbd_session_t *);
 int jbd_set_mosfet(jbd_session_t *,int);
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
-#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) ))
+#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
 #endif

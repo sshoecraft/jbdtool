@@ -98,7 +98,7 @@ struct jbd_params {
 } params[] = {
 //	{ JBD_FC,"FileCode",0 },
 	{ JBD_REG_DCAP,"DesignCapacity", JBD_PARM_DT_UINT },
-	{ JBD_REG_CCAP,"CycleCapacity", JBD_PARM_DT_UINT },
+	{ JBD_REG_CCAP,"CycleCapacity", JBD_PARM_DT_UINT }, 
 	{ JBD_REG_FULL,"FullChargeVol", JBD_PARM_DT_UINT },
 	{ JBD_REG_EMPTY,"ChargeEndVol", JBD_PARM_DT_UINT },
 	{ JBD_REG_RATE,"DischargingRate", JBD_PARM_DT_PCT },

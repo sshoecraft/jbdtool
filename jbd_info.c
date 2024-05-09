@@ -13,7 +13,7 @@ LICENSE file in the root directory of this source tree.
 #include "debug.h"
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
-#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) ))
+#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
 int jbd_eeprom_start(jbd_session_t *s) {

@@ -27,7 +27,7 @@ LICENSE file in the root directory of this source tree.
 #define JBD_MOS_DISCHARGE       0x02
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
-#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) ))
+#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
 static uint16_t jbd_crc(unsigned char *data, int len) {
