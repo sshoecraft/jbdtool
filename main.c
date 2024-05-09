@@ -53,7 +53,7 @@ int flat = 0;
 enum JBD_PARM_DT {
 	JBD_PARM_DT_UNK,
 	JBD_PARM_DT_INT,		/* Std int/number */
-	JBD_PARM_DT_UINT,       /* Std unsigned/number */
+	JBD_PARM_DT_UINT,       /* Std unsigned int/number */
     JBD_PARM_DT_FLOAT,		/* floating pt */
 	JBD_PARM_DT_STR,		/* string */
 	JBD_PARM_DT_TEMP,		/* temp */
@@ -339,7 +339,8 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 	dprintf(3,"label: %s, dt: %d\n", label, dt);
 	switch(dt) {
     case JBD_PARM_DT_UINT:
-        _duint(label,(int)_getshort(data));
+        _duint(label,(int)_getushort(data));
+        break;
 	case JBD_PARM_DT_INT:
 	case JBD_PARM_DT_TEMP:
 	case JBD_PARM_DT_DATE:
@@ -379,7 +380,7 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 				dstr(label,"%s",str);
 				break;
 			}
-		}	
+		}
 		break;
 	case JBD_PARM_DT_NTC:
 		if (dont_interpret) {
@@ -482,7 +483,6 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 			dprintf(1,"i: %d\n", i);
 			_duint(label,vals[i]);
 		}
-        
 
 		break;
 	case JBD_PARM_DT_HCUVPDELAY:
