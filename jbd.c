@@ -27,6 +27,7 @@ LICENSE file in the root directory of this source tree.
 #define JBD_MOS_DISCHARGE       0x02
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
+#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
 static uint16_t jbd_crc(unsigned char *data, int len) {
@@ -277,11 +278,11 @@ int jbd_can_get_pack(struct jbd_session *s) {
 	i = 0;
 	for(id = 0x107; id < 0x111; id++) {
 		if (jbd_can_get_crc(s,id,data,8)) return 1;
-		pp->cellvolt[i++] = (float)_getshort(&data[0]) / 1000;
+		pp->cellvolt[i++] = (float)_getushort(&data[0]) / 1000;
 		if (i >= pp->cells) break;
-		pp->cellvolt[i++] = (float)_getshort(&data[2]) / 1000;
+		pp->cellvolt[i++] = (float)_getushort(&data[2]) / 1000;
 		if (i >= pp->cells) break;
-		pp->cellvolt[i++] = (float)_getshort(&data[4]) / 1000;
+		pp->cellvolt[i++] = (float)_getushort(&data[4]) / 1000;
 		if (i >= pp->cells) break;
 	}
 
@@ -333,9 +334,9 @@ static int jbd_get_pack(jbd_session_t *s) {
 		return 1;
 	}
 
-	pp->voltage = (float)_getshort(&data[0]) / 100.0;
+	pp->voltage = (float)_getushort(&data[0]) / 100.0;
 	pp->current = (float)_getshort(&data[2]) / 100.0;
-	pp->capacity = (float)_getshort(&data[6]) / 100.0;
+	pp->capacity = (float)_getushort(&data[6]) / 100.0;
         dprintf(2,"voltage: %.2f\n", pp->voltage);
         dprintf(2,"current: %.2f\n", pp->current);
         dprintf(2,"capacity: %.2f\n", pp->capacity);
@@ -384,7 +385,7 @@ static int jbd_get_pack(jbd_session_t *s) {
 	if ((bytes = jbd_rw(s, JBD_CMD_READ, JBD_CMD_CELLINFO, data, sizeof(data))) < 0) return 1;
 
 	for(i=0; i < pp->cells; i++) {
-		pp->cellvolt[i] = (float)_getshort(&data[i*2]) / 1000;
+		pp->cellvolt[i] = (float)_getushort(&data[i*2]) / 1000;
 	}
 
 	return 0;

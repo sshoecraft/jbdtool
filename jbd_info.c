@@ -13,6 +13,7 @@ LICENSE file in the root directory of this source tree.
 #include "debug.h"
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
+#define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
 #define _putshort(p,v) { float tmp; *((p)) = ((int)(tmp = v) >> 8); *((p+1)) = (int)(tmp = v); }
 
 int jbd_eeprom_start(jbd_session_t *s) {
@@ -73,17 +74,17 @@ int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	int day,mon,year,id,i;
 
 	if (jbd_can_get_crc(s,0x100,data,sizeof(data))) return 1;
-	info->voltage = (float)_getshort(&data[0]) / 100.0;
+	info->voltage = (float)_getushort(&data[0]) / 100.0;
 	info->current = (float)_getshort(&data[2]) / 100.0;
-	info->capacity = (float)_getshort(&data[4]) / 100.0;
+	info->capacity = (float)_getushort(&data[4]) / 100.0;
 	dprintf(1,"voltage: %.2f\n", info->voltage);
 	dprintf(1,"current: %.2f\n", info->current);
 	dprintf(1,"capacity: %.2f\n", info->capacity);
 
 	if (jbd_can_get_crc(s,0x101,data,8)) return 1;
-	info->fullcap = (float)_getshort(&data[0]) / 100.0;
-	info->cycles = _getshort(&data[2]);
-	info->pctcap = _getshort(&data[4]);
+	info->fullcap = (float)_getushort(&data[0]) / 100.0;
+	info->cycles = _getushort(&data[2]);
+	info->pctcap = _getushort(&data[4]);
 	dprintf(1,"fullcap: %.2f\n", info->fullcap);
 	dprintf(1,"cycles: %d\n", info->cycles);
 	dprintf(1,"pctcap: %d\n", info->pctcap);
@@ -131,7 +132,7 @@ int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	year = 2000 + (mfgdate >> 9);
 	dprintf(3,"year: %d, mon: %d, day: %d\n", year, mon, day);
 	sprintf(info->mfgdate,"%04d%02d%02d",year,mon,day);
-	info->version = (float)_getshort(&data[4]) / 10.0;
+	info->version = (float)_getushort(&data[4]) / 10.0;
 	dprintf(1,"fetstate: %d\n", info->fetstate);
 	dprintf(1,"mfgdate: %s\n", info->mfgdate);
 	dprintf(1,"version: %.1f\n", info->version);
@@ -164,11 +165,11 @@ int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	i = 0;
 	for(id = 0x107; id < 0x111; id++) {
 		if (jbd_can_get_crc(s,id,data,8)) return 1;
-		info->cellvolt[i++] = (float)_getshort(&data[0]) / 1000;
+		info->cellvolt[i++] = (float)_getushort(&data[0]) / 1000;
 		if (i >= info->strings) break;
-		info->cellvolt[i++] = (float)_getshort(&data[2]) / 1000;
+		info->cellvolt[i++] = (float)_getushort(&data[2]) / 1000;
 		if (i >= info->strings) break;
-		info->cellvolt[i++] = (float)_getshort(&data[4]) / 1000;
+		info->cellvolt[i++] = (float)_getushort(&data[4]) / 1000;
 		if (i >= info->strings) break;
 	}
 
@@ -192,15 +193,15 @@ static int jbd_std_get_info(jbd_session_t *s, jbd_info_t *info) {
 
 	if (jbd_rw(s, JBD_CMD_READ, JBD_CMD_HWINFO, data, sizeof(data)) < 0) return 1;
 
-        info->voltage = (float)_getshort(&data[0]) / 100.0;
+        info->voltage = (float)_getushort(&data[0]) / 100.0;
         info->current = (float)_getshort(&data[2]) / 100.0;
-        info->capacity = (float)_getshort(&data[4]) / 100.0;
+        info->capacity = (float)_getushort(&data[4]) / 100.0;
         dprintf(1,"voltage: %.2f\n", info->voltage);
         dprintf(1,"current: %.2f\n", info->current);
         dprintf(1,"capacity: %.2f\n", info->capacity);
 
-	info->fullcap = (float)_getshort(&data[6]) / 100.0;
-	info->cycles = _getshort(&data[8]);
+	info->fullcap = (float)_getushort(&data[6]) / 100.0;
+	info->cycles = _getushort(&data[8]);
 	info->pctcap = data[19];
 	dprintf(1,"fullcap: %.2f\n", info->fullcap);
 	dprintf(1,"cycles: %d\n", info->cycles);
