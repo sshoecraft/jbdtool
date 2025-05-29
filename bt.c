@@ -1,6 +1,6 @@
 #if defined(BLUETOOTH) && !defined(__WIN32) && !defined(__WIN64)
 /*
-Copyright (c) 2021, Stephen P. Shoecraft
+Copyright (c) 2025, Stephen P. Shoecraft
 All rights reserved.
 
 This source code is licensed under the BSD-style license found in the

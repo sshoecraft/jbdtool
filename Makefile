@@ -52,8 +52,8 @@ endif
 
 ifneq ($(WINDOWS),yes)
 ifeq ($(BLUETOOTH),yes)
-	CFLAGS+=-DBLUETOOTH
-	LIBS+=`pkg-config --cflags --libs glib-2.0 gio-2.0`
+	CFLAGS+=-DBLUETOOTH `pkg-config --cflags glib-2.0 gio-2.0`
+	LIBS+=`pkg-config --libs glib-2.0 gio-2.0`
 	# XXX in order to static link on my RPI4 64-bit debian 11 box
 	# download https://github.com/util-linux/util-linux
 	# ./configure --disable-shared --enable-static
