@@ -716,6 +716,13 @@ void usage() {
 	printf("  -N 		dont wait if locked\n");
 }
 
+int lockfd = -1;
+char lockfile[256];
+void clear_lock(void) {
+	if (lockfd >= 0) unlock_file(lockfd);
+	unlink(lockfile);
+}
+
 int main(int argc, char **argv) {
 	int opt,bytes,action,pretty,all,i,reg,dump;
 	int charge,discharge,reset;
@@ -730,8 +737,7 @@ int main(int argc, char **argv) {
 	int interval;
 	char *mqtt;
 #endif
-	char lockfile[256];
-	int lockfd,dont_wait;
+	int dont_wait;
 
 	charge = discharge = -1;
 	action = pretty = outfmt = all = reg = dump = flat = reset = dont_wait = 0;
@@ -898,6 +904,7 @@ int main(int argc, char **argv) {
 #ifndef WINDOWS
 	/* Lock the target */
 	for(p = target + strlen(target); p >= target; p--) {
+		if (*p == ':') *p = '_';
 		if (*p != 0 && !isalnum(*p) && *p != '_' && *p != '-') {
 			break;
 		}
@@ -911,13 +918,17 @@ int main(int argc, char **argv) {
 		log_error("unable to lock target");
 		return 1;
 	}
+	atexit(clear_lock);
 #endif
 
 	/* If setting charge or discharge do that here */
 	dprintf(2,"charge: %d, discharge: %d\n", charge, discharge);
 	if (charge >= 0 || discharge >= 0) {
 		opt = 0;
-		if (pack.open(pack.handle)) return 1;
+		if (pack.open(pack.handle)) {
+			unlock_file(lockfd);
+			return 1;
+		}
 		if (jbd_get_info(pack.handle,&info) == 0) {
 			dprintf(2,"fetstate: %x\n", info.fetstate);
 			if (charge == 0 || (info.fetstate & JBD_MOS_CHARGE) == 0) opt |= JBD_MOS_CHARGE;
@@ -932,8 +943,7 @@ int main(int argc, char **argv) {
 				if (discharge >= 0) printf("discharging %s\n", discharge ? "enabled" : "disabled");
 			}
 		}
-		if (pack.close(pack.handle)) return 1;
-		return i;
+		pack.close(pack.handle);
 	}
 
 	/* Reset? */
@@ -941,13 +951,12 @@ int main(int argc, char **argv) {
 	if (reset) {
 		printf("*** RESETTING ***\n");
 		if (pack.open(pack.handle)) return 1;
-		if (jbd_eeprom_start(pack.handle)) {
-			pack.close(pack.handle);
-			return 1;
+		if (!jbd_eeprom_start(pack.handle)) {
+			jbd_reset(pack.handle);
+			jbd_eeprom_end(pack.handle);
 		}
-		jbd_reset(pack.handle);
-		jbd_eeprom_end(pack.handle);
 		pack.close(pack.handle);
+		unlock_file(lockfd);
 		return 1;
 	}
 	
@@ -969,11 +978,15 @@ int main(int argc, char **argv) {
 		dprintf(1,"host: %s, clientid: %s, topic: %s, user: %s, pass: %s\n", mc.host, mc.clientid, mqtt_topic, mc.user, mc.pass);
 		if (strlen(mc.host) ==0 || strlen(mc.clientid) == 0 || strlen(mqtt_topic)==0) {
 			printf("error: mqtt format is: host:clientid:topic[:user:pass]\n");
+			unlock_file(lockfd);
 			return 1;
 		}
 
 		conf->mqtt = mqtt_new(&mc,0,0);
-		if (!conf->mqtt) return 1;
+		if (!conf->mqtt) {
+			unlock_file(lockfd);
+			return 1;
+		}
 
 		/* Test the connection */
 		if (mqtt_connect(conf->mqtt,20)) return 1;

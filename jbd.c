@@ -9,10 +9,12 @@ LICENSE file in the root directory of this source tree.
 
 #include "mybmm.h"
 #include "jbd.h"
+#include "jbd_info.h"
 #ifndef __WIN32
 #include <linux/can.h>
 #endif
 
+#if 0
 #define JBD_PKT_START		0xDD
 #define JBD_PKT_END		0x77
 #define JBD_CMD_READ		0xA5
@@ -25,6 +27,7 @@ LICENSE file in the root directory of this source tree.
 
 #define JBD_MOS_CHARGE          0x01
 #define JBD_MOS_DISCHARGE       0x02
+#endif
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))
 #define _getushort(p) ((unsigned short) ((*((p)) << 8) | *((p)+1) )) 
@@ -42,7 +45,7 @@ static uint16_t jbd_crc(unsigned char *data, int len) {
 	return crc;
 }
 
-static int jbd_verify(uint8_t *buf, int len, uint8_t reg) {
+static int jbd_verify(jbd_session_t *s, uint8_t *buf, int len, uint8_t reg) {
 	uint16_t my_crc,pkt_crc;
 	int i,data_length;
 
@@ -313,7 +316,7 @@ int jbd_rw(jbd_session_t *s, uint8_t action, uint8_t reg, uint8_t *data, int dat
 		bytes = s->tp->read(s->tp_handle,buf,sizeof(buf));
 		dprintf(5,"bytes: %d\n", bytes);
 		if (bytes < 0) return -1;
-		if (!jbd_verify(buf,bytes,reg)) break;
+		if (!jbd_verify(s,buf,bytes,reg)) break;
 		sleep(1);
 	}
 	memcpy(data,&buf[4],buf[3]);
