@@ -32,8 +32,6 @@ CFLAGS+=-Wall -O2 -pipe
 endif
 #LIBS=-ldl
 
-CFLAGS+=`pkg-config --cflags --libs glib-2.0 gio-2.0`
-
 ifeq ($(MQTT),yes)
 	SRCS+=mqtt.c
 	CFLAGS+=-DMQTT
@@ -55,8 +53,7 @@ endif
 ifneq ($(WINDOWS),yes)
 ifeq ($(BLUETOOTH),yes)
 	CFLAGS+=-DBLUETOOTH
-#	LIBS+=-L/usr/src/gattlib/build/dbus  -Wl,-rpath,/usr/src/gattlib/build/dbus /usr/src/gattlib/build/dbus/libgattlib.so -lglib-2.0 -L/lib -L/usr/lib/aarch64-linux-gnu -lgattlib -lglib-2.0 -lpcre -lpthread -lgio-2.0 -lgobject-2.0 -lglib-2.0
-	LIBS+=-lgattlib -lgio-2.0 -lgobject-2.0 -lgmodule-2.0 -lglib-2.0
+	LIBS+=`pkg-config --cflags --libs glib-2.0 gio-2.0`
 	# XXX in order to static link on my RPI4 64-bit debian 11 box
 	# download https://github.com/util-linux/util-linux
 	# ./configure --disable-shared --enable-static
