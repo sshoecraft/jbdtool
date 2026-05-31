@@ -1,7 +1,7 @@
 
 DEBUG=yes
-BLUETOOTH=yes
-MQTT=yes
+BLUETOOTH=no
+MQTT=no
 STATIC=no
 
 ifeq ($(TARGET),win32)
@@ -20,6 +20,10 @@ else ifeq ($(TARGET),pi)
 else
 	CC = gcc
 	LINUX=yes
+	UNAME_S := $(shell uname -s)
+	ifeq ($(UNAME_S),FreeBSD)
+		CC = $(shell which cc 2>/dev/null || echo gcc)
+	endif
 endif
 
 PROG=jbdtool$(EXT)

@@ -10,7 +10,7 @@ LICENSE file in the root directory of this source tree.
 #include "mybmm.h"
 #include "jbd.h"
 #include "jbd_info.h"
-#ifndef __WIN32
+#if defined(__linux__)
 #include <linux/can.h>
 #endif
 
@@ -178,8 +178,8 @@ Reserved
 #endif
 }
 
-#ifndef __WIN32
-#define         CRC_16_POLYNOMIALS  0xa001    
+#if defined(__linux__)
+#define         CRC_16_POLYNOMIALS  0xa001
 static unsigned short jbd_can_crc(unsigned char *pchMsg) {
 	unsigned char i, chChar;
 	unsigned short wCRC = 0xFFFF;
@@ -449,8 +449,8 @@ static int jbd_read(void *handle,...) {
 	va_start(ap, handle);
 	va_end(ap);
 	dprintf(5,"transport: %s\n", s->tp->name);
-#ifndef __WIN32
-	if (strncmp(s->tp->name,"can",3)==0) 
+#if defined(__linux__)
+	if (strncmp(s->tp->name,"can",3)==0)
 		r = jbd_can_get_pack(s);
 	else
 #endif

@@ -66,7 +66,7 @@ int jbd_reset(jbd_session_t *s) {
 	return (r < 0 ? 1 : 0);
 }
 
-#ifndef __WIN32
+#if defined(__linux__)
 /* For CAN bus only */
 int jbd_can_get_info(jbd_session_t *s, jbd_info_t *info) {
 	unsigned char data[8];
@@ -288,8 +288,8 @@ int jbd_get_info(jbd_session_t *s, jbd_info_t *info) {
 	int r,i;
 
 	dprintf(1,"transport: %s\n", s->tp->name);
-#ifndef __WIN32
-	if (strncmp(s->tp->name,"can",3)==0) 
+#if defined(__linux__)
+	if (strncmp(s->tp->name,"can",3)==0)
 		r = jbd_can_get_info(s,info);
 	else
 #endif

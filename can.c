@@ -1,5 +1,5 @@
 
-#if !defined(__WIN32) && !defined(__WIN64)
+#if defined(__linux__)
 /*
 Copyright (c) 2021, Stephen P. Shoecraft
 All rights reserved.

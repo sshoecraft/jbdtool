@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.8"
+#define VERSION "1.9"
 #include "build.h"
 
 int debug = 0;

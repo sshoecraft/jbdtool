@@ -16,7 +16,9 @@ LICENSE file in the root directory of this source tree.
 extern mybmm_module_t jbd_module;
 #if !defined(__WIN32) && !defined(__WIN64)
 extern mybmm_module_t bt_module;
+#if defined(__linux__)
 extern mybmm_module_t can_module;
+#endif
 #endif
 extern mybmm_module_t ip_module;
 extern mybmm_module_t serial_module;
@@ -57,8 +59,10 @@ mybmm_module_t *mybmm_load_module(mybmm_config_t *conf, char *name, int type) {
 	} else if (strcmp(name,"bt")==0) {
 		mp = &bt_module;
 #endif
+#if defined(__linux__)
 	} else if (strcmp(name,"can")==0) {
 		mp = &can_module;
+#endif
 #endif
 	} else if (strcmp(name,"ip")==0) {
 		mp = &ip_module;
