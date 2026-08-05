@@ -1,3 +1,16 @@
 
 version		date		what
 1.8		2022-04-11	lock target
+1.9.1		2026-08-05	fix: writing BatteryConfig/NtcConfig by bit name
+				(eg. SCRL,BALANCE_EN) silently wrote 0 - the value
+				went through atoi().  Bit names are now parsed, and
+				an unrecognized name is an error instead of a write.
+				JSON files written by -j can now be fed back to -w
+				(bit fields are arrays); a bad json value type no
+				longer writes the parameter name as the value.
+				fix: pdisp() str[] was too small to hold all 8
+				BatteryConfig names quoted for json - reading a pack
+				with most function bits set smashed the stack.
+				_addstr() now takes the buffer size.
+				serial: guard baud rates missing on macOS.
+				tests/: added test_parse_bits.

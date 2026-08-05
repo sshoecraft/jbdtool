@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.9"
+#define VERSION "1.9.1"
 #include "build.h"
 
 int debug = 0;
@@ -90,6 +90,35 @@ enum JBD_PARM_DT {
 #define JBD_NTC6		0x20
 #define JBD_NTC7		0x40
 #define JBD_NTC8		0x80
+
+struct jbd_bit {
+	uint16_t mask;
+	char *label;
+};
+
+struct jbd_bit func_bits[] = {
+	{ JBD_FUNC_SWITCH,"Switch" },
+	{ JBD_FUNC_SCRL,"SCRL" },
+	{ JBD_FUNC_BALANCE_EN,"BALANCE_EN" },
+	{ JBD_FUNC_CHG_BALANCE,"CHG_BALANCE" },
+	{ JBD_FUNC_LED_EN,"LED_EN" },
+	{ JBD_FUNC_LED_NUM,"LED_NUM" },
+	{ JBD_FUNC_RTC,"RTC" },
+	{ JBD_FUNC_EDV,"EDV" },
+	{ 0,0 }
+};
+
+struct jbd_bit ntc_bits[] = {
+	{ JBD_NTC1,"NTC1" },
+	{ JBD_NTC2,"NTC2" },
+	{ JBD_NTC3,"NTC3" },
+	{ JBD_NTC4,"NTC4" },
+	{ JBD_NTC5,"NTC5" },
+	{ JBD_NTC6,"NTC6" },
+	{ JBD_NTC7,"NTC7" },
+	{ JBD_NTC8,"NTC8" },
+	{ 0,0 }
+};
 
 struct jbd_params {
 	uint8_t reg;
@@ -295,9 +324,18 @@ void dstr(char *label, char *format, char *val) {
 }
 #define _dstr(l,v) dstr(l,"%s",v)
 
-static inline void _addstr(char *str,char *newstr) {
+static inline void _addstr(char *str,int size,char *newstr) {
+	int len,need;
+
 	dprintf(4,"str: %s, newstr: %s\n", str, newstr);
-	if (strlen(str)) strcat(str,sepstr);
+	len = strlen(str);
+	/* seperator + optional quotes + the string itself + null */
+	need = (len ? strlen(sepstr) : 0) + strlen(newstr) + (outfmt == 2 ? 2 : 0) + 1;
+	if (len + need > size) {
+		dprintf(1,"str full (%d + %d > %d), dropping: %s\n", len, need, size, newstr);
+		return;
+	}
+	if (len) strcat(str,sepstr);
 	dprintf(4,"str: %s\n", str);
 	if (outfmt == 2) strcat(str,"\"");
 	strcat(str,newstr);
@@ -311,11 +349,11 @@ void _dump(char *label, short val) {
 	dprintf(3,"label: %s, val: %d\n", label, val);
 	str[0] = 0;
 	sprintf(temp,"%d",val);
-	_addstr(str,temp);
+	_addstr(str,sizeof(str),temp);
 	sprintf(temp,"%d",(unsigned short)val);
-	_addstr(str,temp);
+	_addstr(str,sizeof(str),temp);
 	sprintf(temp,"%04x",(unsigned short)val);
-	_addstr(str,temp);
+	_addstr(str,sizeof(str),temp);
 	dprintf(3,"str: %s\n",str);
 	switch(outfmt) {
 	case 2:
@@ -333,7 +371,9 @@ void _dump(char *label, short val) {
 }
 
 void pdisp(char *label, int dt, uint8_t *data, int len) {
-	char str[64],temp[72];
+	/* str must hold every bit name, quoted, with seperators (JSON output) */
+	char str[192],temp[208];
+	struct jbd_bit *bp;
 	uint16_t val;
 
 	dprintf(3,"label: %s, dt: %d\n", label, dt);
@@ -359,14 +399,8 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 		} else {
 			val = _getshort(data);
 			str[0] = 0;
-			if (val & JBD_FUNC_SWITCH) _addstr(str,"Switch");
-			if (val & JBD_FUNC_SCRL)  _addstr(str,"SCRL");
-			if (val & JBD_FUNC_BALANCE_EN) _addstr(str,"BALANCE_EN");
-			if (val & JBD_FUNC_CHG_BALANCE) _addstr(str,"CHG_BALANCE");
-			if (val & JBD_FUNC_LED_EN) _addstr(str,"LED_EN");
-			if (val & JBD_FUNC_LED_NUM) _addstr(str,"LED_NUM");
-			if (val & JBD_FUNC_RTC) _addstr(str,"RTC");
-			if (val & JBD_FUNC_EDV) _addstr(str,"EDV");
+			for(bp = func_bits; bp->label; bp++)
+				if (val & bp->mask) _addstr(str,sizeof(str),bp->label);
 			switch(outfmt) {
 			case 2:
 				sprintf(temp,"[ %s ]",str);
@@ -388,14 +422,8 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 		} else {
 			val = _getshort(data);
 			str[0] = 0;
-			if (val & JBD_NTC1) _addstr(str,"NTC1");
-			if (val & JBD_NTC2) _addstr(str,"NTC2");
-			if (val & JBD_NTC3) _addstr(str,"NTC3");
-			if (val & JBD_NTC4) _addstr(str,"NTC4");
-			if (val & JBD_NTC5) _addstr(str,"NTC5");
-			if (val & JBD_NTC6) _addstr(str,"NTC6");
-			if (val & JBD_NTC7) _addstr(str,"NTC7");
-			if (val & JBD_NTC8) _addstr(str,"NTC8");
+			for(bp = ntc_bits; bp->label; bp++)
+				if (val & bp->mask) _addstr(str,sizeof(str),bp->label);
 			switch(outfmt) {
 			case 2:
 				sprintf(temp,"[ %s ]",str);
@@ -640,8 +668,70 @@ enum JBDTOOL_ACTION {
 	JBDTOOL_ACTION_LIST
 };
 
+/* Convert a value into a bitmask.  Accepts a number (decimal or 0x hex) or a
+   list of bit labels seperated by , | + or whitespace.  Returns -1 if a label
+   isnt recognized so the caller doesnt write a bogus mask to the BMS. */
+int parse_bits(char *value, struct jbd_bit *bits, uint16_t *maskp) {
+	struct jbd_bit *bp;
+	char label[32],*p,*end;
+	uint16_t mask;
+	long num;
+	int i;
+
+	dprintf(3,"value: %s\n", value);
+	p = value;
+	while(*p && isspace(*p)) p++;
+	if (!*p) {
+		printf("error: empty value: specify a number or bit names (0 clears all bits)\n");
+		return -1;
+	}
+
+	/* A plain number sets the mask directly */
+	num = strtol(p,&end,0);
+	if (end != p) {
+		while(*end && isspace(*end)) end++;
+		if (!*end) {
+			if (num < 0 || num > 0xFFFF) {
+				printf("error: value out of range: %s\n", value);
+				return -1;
+			}
+			*maskp = num;
+			dprintf(3,"numeric mask: %04x\n", (int)num);
+			return 0;
+		}
+	}
+
+	/* Otherwise it's a list of bit labels */
+	mask = 0;
+	while(*p) {
+		while(*p && (isspace(*p) || *p == ',' || *p == '|' || *p == '+')) p++;
+		if (!*p) break;
+		i = 0;
+		while(*p && !isspace(*p) && *p != ',' && *p != '|' && *p != '+') {
+			if (i < sizeof(label)-1) label[i++] = *p;
+			p++;
+		}
+		label[i] = 0;
+		dprintf(4,"label: %s\n", label);
+		for(bp = bits; bp->label; bp++) {
+			if (strcasecmp(bp->label,label) == 0) break;
+		}
+		if (!bp->label) {
+			printf("error: unknown bit name: %s\nvalid names are:",label);
+			for(bp = bits; bp->label; bp++) printf(" %s",bp->label);
+			printf("\n");
+			return -1;
+		}
+		mask |= bp->mask;
+	}
+	dprintf(3,"mask: %04x\n", mask);
+	*maskp = mask;
+	return 0;
+}
+
 int write_parm(void *h, struct jbd_params *pp, char *value) {
 	uint8_t data[128];
+	uint16_t mask;
 	int len;
 
 	dprintf(3,"h: %p, pp->label: %s, value: %s\n",h,pp->label,value);
@@ -653,9 +743,15 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 	case JBD_PARM_DT_TEMP:
 	case JBD_PARM_DT_DATE:
 	case JBD_PARM_DT_PCT:
-	case JBD_PARM_DT_FUNC:
-	case JBD_PARM_DT_NTC:
 		_putshort(data,atoi(value));
+		break;
+	case JBD_PARM_DT_FUNC:
+		if (parse_bits(value,func_bits,&mask)) return -1;
+		_putshort(data,mask);
+		break;
+	case JBD_PARM_DT_NTC:
+		if (parse_bits(value,ntc_bits,&mask)) return -1;
+		_putshort(data,mask);
 		break;
 	case JBD_PARM_DT_B0:
 		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 1) return -1;
@@ -1226,9 +1322,30 @@ int main(int argc, char **argv) {
 						sprintf(temp,"%d",num);
 						p = temp;
 						break;
-					default:
-						printf("error: bad type in json file: %d\n", type);
+					case JSONArray:
+						/* bit fields (BatteryConfig/NtcConfig) are written
+						   out as arrays of names - join them back up */
+						{
+							JSON_Array *array = json_value_get_array(value);
+							int j,acount = json_array_get_count(array);
+							char *ap;
+
+							temp[0] = 0;
+							for(j=0; j < acount; j++) {
+								ap = (char *)json_array_get_string(array,j);
+								if (!ap) continue;
+								if (strlen(temp) + strlen(ap) + 2 > sizeof(temp)) break;
+								if (strlen(temp)) strcat(temp,",");
+								strcat(temp,ap);
+							}
+						}
+						dprintf(3,"value: %s\n", temp);
+						p = temp;
 						break;
+					default:
+						/* dont write - p still points at the parm name */
+						printf("error: bad type in json file for %s: %d\n", pp->label, type);
+						continue;
 					}
 					if (write_parm(pack.handle,pp,p)) break;
 				}

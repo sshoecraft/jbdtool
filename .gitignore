@@ -1,0 +1,17 @@
+# build output
+*.o
+*.d
+.deps/
+build.h
+jbdtool
+
+# tests
+tests/test_parse_bits
+*.dSYM/
+
+# macOS
+._*
+.DS_Store
+
+# tooling session state
+.shepherd_session.clyde.json

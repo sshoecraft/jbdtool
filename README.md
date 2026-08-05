@@ -87,6 +87,30 @@ to write parameters, specify a key value pair after -w
 jbdtool -t ip:10.0.0.1 -w BalanceStartVoltage 4050 BalanceWindow 20
 
 
+BatteryConfig and NtcConfig are bit fields.  They read back as a list of names
+and can be written the same way, or as a number (decimal, or 0x for hex):
+
+	jbdtool -t serial:/dev/ttyS0,9600 -w BatteryConfig SCRL,BALANCE_EN
+	jbdtool -t serial:/dev/ttyS0,9600 -w BatteryConfig 6
+	jbdtool -t serial:/dev/ttyS0,9600 -w NtcConfig NTC1,NTC2
+
+The value replaces the whole field - names left out are cleared.  Writing an
+unrecognized name is an error and nothing is written.
+
+BatteryConfig bits:
+
+	Switch		0x01	key/switch control
+	SCRL		0x02	sleep/current recalibration
+	BALANCE_EN	0x04	balancing enabled
+	CHG_BALANCE	0x08	balance only while charging
+	LED_EN		0x10	led enabled
+	LED_NUM		0x20	led shows number of cells
+	RTC		0x40	real time clock
+	EDV		0x80	end of discharge voltage
+
+NtcConfig bits: NTC1 (0x01) through NTC8 (0x80)
+
+
 to send all output to a file, use -o.   If the filename ends with .json, file will be written in JSON format:
 
 jbdtool -t can:can0,500000 -j -o pack_1.json
