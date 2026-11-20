@@ -86,6 +86,16 @@ to write parameters, specify a key value pair after -w
 
 jbdtool -t ip:10.0.0.1 -w BalanceStartVoltage 4050 BalanceWindow 20
 
+-w exits factory mode with 0x0000, which persists writes on the boards this
+was tested on.  If a board loses its settings at power off, write with -W
+instead: it exits with 0x2828 (exit and save, the exit JBD's protocol manual
+documents).  -W also ZEROES the protection event counters (register 0xAA -
+short circuit, over/under voltage, temperature, restarts).  Read them first
+if you want to keep them - the raw reply (12 big-endian words after the
+DD AA 00 18 header) is in the debug output of:
+
+	jbdtool -t ip:10.0.0.1 -d 5 -R 0xAA
+
 
 BatteryConfig and NtcConfig are bit fields.  They read back as a list of names
 and can be written the same way, or as a number (decimal, or 0x for hex):

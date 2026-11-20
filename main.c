@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.9.1"
+#define VERSION "1.9.2"
 #include "build.h"
 
 int debug = 0;
@@ -783,7 +783,7 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 
 void usage() {
 	printf("jbdtool version %s build %lld\n",VERSION,BUILD);
-	printf("usage: jbdtool [-abcjJFrwlhXN] [-f filename] [-t <module:target>] [-o output file]" MQTT_OPTS "\n");
+	printf("usage: jbdtool [-abcjJFrwWlhXN] [-f filename] [-t <module:target>] [-o output file]" MQTT_OPTS "\n");
 	printf("arguments:\n");
 #ifdef DEBUG
 	printf("  -d <#>		debug output\n");
@@ -797,6 +797,9 @@ void usage() {
 	printf("  -r		read parameters\n");
 	printf("  -a		read all parameters\n");
 	printf("  -w		write parameters\n");
+	printf("  -W		write parameters, exit with save (0x2828) - for boards\n");
+	printf("    		that lose -w writes at power off.  ZEROES the protection\n");
+	printf("    		event counters (register 0xAA)\n");
 	printf("  -l		list supported parameters\n");
 	printf("  -h		this output\n");
 	printf("  -f <filename>	input filename for read/write.\n");
@@ -834,9 +837,10 @@ int main(int argc, char **argv) {
 	char *mqtt;
 #endif
 	int dont_wait;
+	int write_error,write_save;
 
 	charge = discharge = -1;
-	action = pretty = outfmt = all = reg = dump = flat = reset = dont_wait = 0;
+	action = pretty = outfmt = all = reg = dump = flat = reset = dont_wait = write_save = 0;
 	sepch = ',';
 	sepstr = ",";
 	transport = target = label = filename = outfile = opts = 0;
@@ -845,7 +849,7 @@ int main(int argc, char **argv) {
 	mqtt = 0;
 	char mqtt_topic[128];
 #endif
-	while ((opt=getopt(argc, argv, "+acDg:G:d:nNt:e:f:R:jJo:rwlhFX" MQTT_GETOPT)) != -1) {
+	while ((opt=getopt(argc, argv, "+acDg:G:d:nNt:e:f:R:jJo:rwWlhFX" MQTT_GETOPT)) != -1) {
 		switch (opt) {
 		case 'D':
 			dump = 1;
@@ -937,6 +941,10 @@ int main(int argc, char **argv) {
 			break;
 		case 'w':
 			action=JBDTOOL_ACTION_WRITE;
+			break;
+		case 'W':
+			action=JBDTOOL_ACTION_WRITE;
+			write_save = 1;
 			break;
                 case 'l':
 			for(pp = params; pp->label; pp++) printf("%s\n", pp->label);
@@ -1270,6 +1278,9 @@ int main(int argc, char **argv) {
 			printf("error: writing parameters not possible using CAN bus\n");
 			return 1;
 		}
+		/* write_error: something went wrong mid-session - exit factory mode
+		   with the plain exit (never the -W save) and return an error */
+		write_error = 0;
 		if (filename) {
 			char line[128],*valp;
 			FILE *fp;
@@ -1296,13 +1307,15 @@ int main(int argc, char **argv) {
 					p = (char *)json_object_get_name(object, i);
 					if (!p) {
 						printf("error reading json file\n");
-						return 1;
+						write_error = 1;
+						break;
 					}
 					dprintf(3,"p: %s\n", p);
 					pp = _getp(p);
 					if (!pp) {
 						printf("error: parm in json file not found: %s\n", p);
-						return 1;
+						write_error = 1;
+						break;
 					}
 					value = json_object_get_value(object, pp->label);
 					type = json_value_get_type(value);
@@ -1347,10 +1360,11 @@ int main(int argc, char **argv) {
 						printf("error: bad type in json file for %s: %d\n", pp->label, type);
 						continue;
 					}
-					if (write_parm(pack.handle,pp,p)) break;
+					if (write_parm(pack.handle,pp,p)) {
+						write_error = 1;
+						break;
+					}
 				}
-				jbd_eeprom_end(pack.handle);
-				pack.close(pack.handle);
 			} else {
 				fp = fopen(filename,"r");
 				if (!fp) {
@@ -1377,11 +1391,13 @@ int main(int argc, char **argv) {
 					while(*p && !isspace(*p)) p++;
 					*p = 0;
 					dprintf(3,"valp: %s\n", valp);
-					if (write_parm(pack.handle,pp,valp)) break;
+					if (write_parm(pack.handle,pp,valp)) {
+						write_error = 1;
+						break;
+					}
 				}
+				fclose(fp);
 			}
-			jbd_eeprom_end(pack.handle);
-			pack.close(pack.handle);
 		} else {
 			/* Every arg par is a parm name & value */
 			if (pack.open(pack.handle)) return 1;
@@ -1392,19 +1408,38 @@ int main(int argc, char **argv) {
 				dprintf(3,"pp: %p\n", pp);
 				if (!pp) {
 					printf("error: parameter %s not found.\n",argv[i]);
+					write_error = 1;
 					break;
 				}
 				/* Get the value */
 				if (i+1 == argc) {
 					printf("error: no value for parameter %s\n",argv[i]);
+					write_error = 1;
 					break;
 				}
 				i++;
-				if (write_parm(pack.handle,pp,argv[i])) break;
+				if (write_parm(pack.handle,pp,argv[i])) {
+					write_error = 1;
+					break;
+				}
 			}
+		}
+		/* every write path above leaves the pack open and in factory mode */
+		if (write_error) {
+			printf("error: write aborted - parameters written before the error may already be applied\n");
 			jbd_eeprom_end(pack.handle);
 			pack.close(pack.handle);
+			return 1;
 		}
+		/* 0x0000 exit persists writes on the boards this was tested on
+		   (fw 2.5); 0x2828 also saves but zeroes the 0xAA counters, so
+		   it is only used when asked for */
+		if ((write_save ? jbd_eeprom_save(pack.handle) : jbd_eeprom_end(pack.handle)) < 0) {
+			printf("error: closing write session failed - parameters may not be saved\n");
+			pack.close(pack.handle);
+			return 1;
+		}
+		pack.close(pack.handle);
 		break;
 	}
 	if (outfmt == 2) {

@@ -30,6 +30,18 @@ int jbd_eeprom_end(jbd_session_t *s) {
 	return jbd_rw(s, JBD_CMD_WRITE, JBD_REG_CONFIG, payload, sizeof(payload) );
 }
 
+/* Exit factory mode with save - the only exit JBD's protocol manual
+   documents for a parameter write session.  It also zeroes the protection
+   event counters (register 0xAA).  On fw 2.5 boards the 0x0000 exit
+   (jbd_eeprom_end) already persists writes; some boards reportedly lose
+   them at power off without this. */
+int jbd_eeprom_save(jbd_session_t *s) {
+	uint8_t payload[2] = { 0x28, 0x28 };
+
+	dprintf(2,"saving and closing eeprom...\n");
+	return jbd_rw(s, JBD_CMD_WRITE, JBD_REG_CONFIG, payload, sizeof(payload) );
+}
+
 int jbd_set_mosfet(jbd_session_t *s, int val) {
 	uint8_t payload[2];
 	int r;

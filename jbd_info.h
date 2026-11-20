@@ -171,6 +171,7 @@ typedef struct jbd_info jbd_info_t;
 int jbd_get_info(jbd_session_t *, jbd_info_t *);
 int jbd_eeprom_start(jbd_session_t *);
 int jbd_eeprom_end(jbd_session_t *);
+int jbd_eeprom_save(jbd_session_t *);
 int jbd_set_mosfet(jbd_session_t *,int);
 
 #define _getshort(p) ((short) ((*((p)) << 8) | *((p)+1) ))

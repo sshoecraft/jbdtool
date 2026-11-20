@@ -14,3 +14,18 @@ version		date		what
 				_addstr() now takes the buffer size.
 				serial: guard baud rates missing on macOS.
 				tests/: added test_parse_bits.
+1.9.2		2026-11-19	EEPROM commit on write (PR #21)
+				-W: write parameters and exit factory mode with
+				0x2828 (save) instead of 0x0000, for boards that
+				lose -w writes at power off.  0x2828 also zeroes
+				the protection event counters (0xAA) - verified on
+				a fw 2.5 pack - which is why -w keeps 0x0000: on
+				fw 2.5 it already persists writes.
+				An error partway through a write (bad parm name,
+				missing value, failed write) now returns an error
+				and never uses the -W save.  A failed session
+				close is reported instead of exiting 0.
+				JSON-file writes no longer close the session twice
+				(the save/close sat outside the else).
+				tests/eeprom_commit_test.sh: hardware test for the
+				two exits.

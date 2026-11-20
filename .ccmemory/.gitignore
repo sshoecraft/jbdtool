@@ -1,0 +1,15 @@
+# ccmemory: SQLite index is a derived cache, regenerated locally.
+index.db
+index.db-journal
+index.db-wal
+index.db-shm
+# legacy pre-0.6.1 index name (auto-deleted on next run, ignored meanwhile).
+.memory_index.db
+
+# macOS AppleDouble sidecars + Finder droppings (see paths.py for why).
+._*
+.DS_Store
+
+# ccmemory: required ignore patterns
+compaction-plan.json*
+compaction-claims/
