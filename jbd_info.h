@@ -31,6 +31,11 @@ struct jbd_info {
 	unsigned char probes;			/* the number of NTC (temp) probes */
 	float temps[6];				/* Temps */
 	char model[32];				/* Model name */
+	/* protection event counts (register 0xAA), in jbd_protcount_names order;
+	   nprotcounts is 0 when the board didnt answer, 11 on older firmware
+	   (no restart count), 12 otherwise */
+	unsigned short protcounts[12];
+	int nprotcounts;
 };
 typedef struct jbd_info jbd_info_t;
 
@@ -167,6 +172,8 @@ typedef struct jbd_info jbd_info_t;
      
 #define JBD_MOS_CHARGE		0x01
 #define JBD_MOS_DISCHARGE	0x02
+
+extern char *jbd_protcount_names[12];
 
 int jbd_get_info(jbd_session_t *, jbd_info_t *);
 int jbd_eeprom_start(jbd_session_t *);

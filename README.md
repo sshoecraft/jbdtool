@@ -90,11 +90,31 @@ jbdtool -t ip:10.0.0.1 -w BalanceStartVoltage 4050 BalanceWindow 20
 was tested on.  If a board loses its settings at power off, write with -W
 instead: it exits with 0x2828 (exit and save, the exit JBD's protocol manual
 documents).  -W also ZEROES the protection event counters (register 0xAA -
-short circuit, over/under voltage, temperature, restarts).  Read them first
-if you want to keep them - the raw reply (12 big-endian words after the
-DD AA 00 18 header) is in the debug output of:
+short circuit, over/under voltage, temperature, restarts).  They are in the
+normal info output (ProtectionCounts, below) - save that first if you want
+to keep them.
 
-	jbdtool -t ip:10.0.0.1 -d 5 -R 0xAA
+
+Protection counts
+
+The info output includes ProtectionCounts, the protection event counters
+the BMS keeps (register 0xAA), in this order:
+
+	ShortCircuitCount	short circuit
+	ChargeOCCount		charge over current
+	DischargeOCCount	discharge over current
+	CellOVCount		cell over voltage
+	CellUVCount		cell under voltage
+	ChargeOTCount		charge over temperature
+	ChargeUTCount		charge under temperature
+	DischargeOTCount	discharge over temperature
+	DischargeUTCount	discharge under temperature
+	PackOVCount		pack over voltage
+	PackUVCount		pack under voltage
+	RestartCount		system restarts (not on older firmware)
+
+It is an array like Cells and Temps; -F (flatten) outputs each one as its own
+field with the names above, which is easier to chart from MQTT/JSON.
 
 
 BatteryConfig and NtcConfig are bit fields.  They read back as a list of names

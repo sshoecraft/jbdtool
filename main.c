@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.9.2"
+#define VERSION "1.9.4"
 #include "build.h"
 
 int debug = 0;
@@ -343,17 +343,37 @@ static inline void _addstr(char *str,int size,char *newstr) {
 	dprintf(4,"str: %s\n", str);
 }
 
-void _dump(char *label, short val) {
-	char str[64],temp[72];
+/* Raw register display.  A single word shows as signed,unsigned,hex; a
+   longer reply (eg. 0xAA, 12 words) shows every word in hex.
+   Output must go through outfp like every other display function - main()
+   fclose()s outfp (fd 1) before exit, so anything left in stdout's buffer
+   is lost when stdout is not a tty. */
+void _dump(char *label, uint8_t *data, int len) {
+	char str[400],temp[420];
+	short val;
+	int i;
 
-	dprintf(3,"label: %s, val: %d\n", label, val);
+	dprintf(3,"label: %s, len: %d\n", label, len);
 	str[0] = 0;
-	sprintf(temp,"%d",val);
-	_addstr(str,sizeof(str),temp);
-	sprintf(temp,"%d",(unsigned short)val);
-	_addstr(str,sizeof(str),temp);
-	sprintf(temp,"%04x",(unsigned short)val);
-	_addstr(str,sizeof(str),temp);
+	if (len <= 2) {
+		val = _getshort(data);
+		sprintf(temp,"%d",val);
+		_addstr(str,sizeof(str),temp);
+		sprintf(temp,"%d",(unsigned short)val);
+		_addstr(str,sizeof(str),temp);
+		sprintf(temp,"%04x",(unsigned short)val);
+		_addstr(str,sizeof(str),temp);
+	} else {
+		for(i=0; i+1 < len; i += 2) {
+			sprintf(temp,"%04x",_getushort(&data[i]));
+			_addstr(str,sizeof(str),temp);
+		}
+		/* odd trailing byte */
+		if (i < len) {
+			sprintf(temp,"%02x",data[i]);
+			_addstr(str,sizeof(str),temp);
+		}
+	}
 	dprintf(3,"str: %s\n",str);
 	switch(outfmt) {
 	case 2:
@@ -362,10 +382,10 @@ void _dump(char *label, short val) {
 		json_object_dotset_value(root_object, label, json_parse_string(temp));
 		break;
 	case 1:
-		printf("%s,%s\n",label,str);
+		fprintf(outfp,"%s,%s\n",label,str);
 		break;
 	default:
-		printf("%-25s %s\n",label,str);
+		fprintf(outfp,"%-25s %s\n",label,str);
 		break;
 	}
 }
@@ -448,7 +468,7 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 		_dstr(label,(char *)data);
 		break;
 	case JBD_PARM_DT_DUMP:
-		_dump(label,_getshort(data));
+		_dump(label,data,len);
 		break;
 	case JBD_PARM_DT_DOUBLE:
 		dbool(label,((data[0] & 0x80) != 0));
@@ -625,6 +645,29 @@ void display_info(jbd_info_t *info) {
 			p += sprintf(p,"Discharge");
 		}
 		dstr("FET","%s",temp);
+	}
+	/* protection event counts, same shape as Cells/Temps; -F names them */
+	if (info->nprotcounts) {
+		if (flat) {
+			for(i=0; i < info->nprotcounts; i++)
+				_duint(jbd_protcount_names[i],info->protcounts[i]);
+		} else if (outfmt == 2) {
+			p = temp;
+			p += sprintf(p,"[ ");
+			for(i=0; i < info->nprotcounts; i++) {
+				if (i) p += sprintf(p,",");
+				p += sprintf(p,"%d",info->protcounts[i]);
+			}
+			strcat(temp," ]");
+			json_object_dotset_value(root_object, "ProtectionCounts", json_parse_string(temp));
+		} else {
+			p = temp;
+			for(i=0; i < info->nprotcounts; i++) {
+				if (i) p += sprintf(p,"%c",sepch);
+				p += sprintf(p,"%d",info->protcounts[i]);
+			}
+			dstr("ProtectionCounts","%s",temp);
+		}
 	}
 #if 0
         unsigned long balancebits;

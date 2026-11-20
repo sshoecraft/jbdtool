@@ -29,3 +29,19 @@ version		date		what
 				(the save/close sat outside the else).
 				tests/eeprom_commit_test.sh: hardware test for the
 				two exits.
+1.9.3		2026-11-19	-R raw register output
+				-R printed nothing when stdout was not a tty (pipe,
+				script, cron) and ignored -o: the raw display used
+				printf while everything else uses outfp, and outfp
+				(fd 1) is fclose()d before stdout is flushed.
+				-R now shows every word of a multi-word reply in
+				hex (0xAA showed only the first word).
+1.9.4		2026-11-19	protection counts in info output (issue #6)
+				Info output (and so -j/-J and MQTT) now includes
+				ProtectionCounts: the 12 protection event counters
+				from register 0xAA, as an array like Cells/Temps.
+				-F flattens them to named fields (ShortCircuitCount,
+				CellUVCount, RestartCount, ...).  0xAA is read
+				without entering factory mode - one more request
+				per poll.  Older firmware sends 11 (no restart
+				count); a board that doesnt answer just omits them.

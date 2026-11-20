@@ -296,16 +296,53 @@ static int jbd_std_get_info(jbd_session_t *s, jbd_info_t *info) {
 	return 0;
 }
 
+/* Register 0xAA word order (JBD protocol manual, "Number of protection
+   statistics").  Used as the -F flattened field names. */
+char *jbd_protcount_names[12] = {
+	"ShortCircuitCount",
+	"ChargeOCCount",
+	"DischargeOCCount",
+	"CellOVCount",
+	"CellUVCount",
+	"ChargeOTCount",
+	"ChargeUTCount",
+	"DischargeOTCount",
+	"DischargeUTCount",
+	"PackOVCount",
+	"PackUVCount",
+	"RestartCount",
+};
+
+/* Protection event counts.  Not fatal if the board doesnt answer -
+   nprotcounts stays 0 and they just arent displayed. */
+static void jbd_get_protcounts(jbd_session_t *s, jbd_info_t *info) {
+	uint8_t data[128];
+	int bytes,i;
+
+	info->nprotcounts = 0;
+	bytes = jbd_rw(s, JBD_CMD_READ, JBD_REG_ERROR, data, sizeof(data));
+	dprintf(1,"protcounts bytes: %d\n", bytes);
+	/* 22 bytes: older firmware without the restart count */
+	if (bytes < 22) return;
+	if (bytes > 24) bytes = 24;
+	for(i=0; i < bytes / 2; i++) info->protcounts[i] = _getushort(&data[i*2]);
+	info->nprotcounts = bytes / 2;
+}
+
 int jbd_get_info(jbd_session_t *s, jbd_info_t *info) {
 	int r,i;
 
 	dprintf(1,"transport: %s\n", s->tp->name);
+	info->nprotcounts = 0;
 #if defined(__linux__)
 	if (strncmp(s->tp->name,"can",3)==0)
 		r = jbd_can_get_info(s,info);
 	else
 #endif
+	{
 		r = jbd_std_get_info(s,info);
+		if (r == 0) jbd_get_protcounts(s,info);
+	}
 	if (r != 0) return r;
 	dprintf(1,"r: %d\n", r);
 
