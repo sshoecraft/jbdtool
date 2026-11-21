@@ -45,3 +45,19 @@ version		date		what
 				without entering factory mode - one more request
 				per poll.  Older firmware sends 11 (no restart
 				count); a board that doesnt answer just omits them.
+1.9.5		2026-11-21	hardware protection param writes (issue #22)
+				fix: write_parm() had no case for DoubleOCSC,
+				SCValue, SCDelay, DSGOC2, DSGOC2Delay, HCOVPDelay or
+				HCUVPDelay and sent 2 bytes of uninitialized stack
+				to register 0x38/0x39 - the hardware short circuit
+				and overcurrent settings.  Boards that persist -w
+				writes (fw 2.5) or a -W write kept the garbage; a
+				-j dump fed back to -w hit it.
+				They are now read-modify-write of only their own
+				bits, using the same index tables as the display.
+				A value not in the table is an error and nothing is
+				written; DoubleOCSC takes true/false/1/0.  A param
+				type write_parm() doesnt handle is refused instead
+				of written.
+				tests/test_hw_fields: offline test with a fake
+				register file.

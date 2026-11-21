@@ -7,6 +7,7 @@ jbdtool
 
 # tests
 tests/test_parse_bits
+tests/test_hw_fields
 *.dSYM/
 
 # macOS

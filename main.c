@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.9.4"
+#define VERSION "1.9.5"
 #include "build.h"
 
 int debug = 0;
@@ -390,6 +390,44 @@ void _dump(char *label, uint8_t *data, int len) {
 	}
 }
 
+/* Indexed bit fields in the hardware protection registers 0x38 (HCOC) and
+   0x39 (HTRT).  The register holds an index; vals[index] is the real value.
+   pdisp() and write_parm() both use this so they can't disagree, and a
+   write only touches its own bits (several params share one register). */
+struct jbd_field {
+	int dt;
+	int byte;		/* data[0] = high byte, data[1] = low byte */
+	uint8_t mask;
+	int shift;
+	int *vals;		/* (mask >> shift) + 1 entries */
+};
+
+static int dsgoc2_vals[] = { 8,11,14,17,19,22,25,28,31,33,36,39,42,44,47,50 };
+static int dsgoc2delay_vals[] = { 8,20,40,80,160,320,640,1280 };
+static int scval_vals[] = { 22,33,44,56,67,78,89,100 };
+static int scdelay_vals[] = { 70,100,200,400 };
+static int hcovpdelay_vals[] = { 1,2,4,8 };
+static int hcuvpdelay_vals[] = { 1,4,8,16 };
+
+static struct jbd_field jbd_fields[] = {
+	{ JBD_PARM_DT_DSGOC2,      1, 0x0f, 0, dsgoc2_vals },
+	{ JBD_PARM_DT_DSGOC2DELAY, 1, 0x70, 4, dsgoc2delay_vals },
+	{ JBD_PARM_DT_SCVAL,       0, 0x07, 0, scval_vals },
+	{ JBD_PARM_DT_SCDELAY,     0, 0x18, 3, scdelay_vals },
+	{ JBD_PARM_DT_HCOVPDELAY,  0, 0x30, 4, hcovpdelay_vals },
+	{ JBD_PARM_DT_HCUVPDELAY,  0, 0xC0, 6, hcuvpdelay_vals },
+	{ 0, 0, 0, 0, 0 }
+};
+
+struct jbd_field *jbd_field_get(int dt) {
+	struct jbd_field *fp;
+
+	for(fp = jbd_fields; fp->vals; fp++) {
+		if (fp->dt == dt) return fp;
+	}
+	return 0;
+}
+
 void pdisp(char *label, int dt, uint8_t *data, int len) {
 	/* str must hold every bit name, quoted, with seperators (JSON output) */
 	char str[192],temp[208];
@@ -474,75 +512,20 @@ void pdisp(char *label, int dt, uint8_t *data, int len) {
 		dbool(label,((data[0] & 0x80) != 0));
 		break;
 	case JBD_PARM_DT_DSGOC2:
-		if (dont_interpret) {
-			_dint(label,data[1] & 0x0f);
-		} else {
-			int vals[] = { 8,11,14,17,19,22,25,28,31,33,36,39,42,44,47,50 };
-			int i = data[1] & 0x0f;
-			dprintf(1,"data[1]: %02x\n", data[1]);
-
-			dprintf(1,"i: %d\n", i);
-			_dint(label,vals[i]);
-		}
-		break;
 	case JBD_PARM_DT_DSGOC2DELAY:
-		if (dont_interpret) {
-			_dint(label,(data[1] >> 4) & 0x07);
-		} else {
-			int vals[] = { 8,20,40,80,160,320,640,1280 };
-			int i = (data[1] >> 4) & 0x07;
-			dprintf(1,"data[1]: %02x\n", data[1]);
-
-			dprintf(1,"i: %d\n", i);
-			_duint(label,vals[i]);
-		}
-		break;
 	case JBD_PARM_DT_SCVAL:
-		if (dont_interpret) {
-			_duint(label,data[0] & 0x07);
-		} else {
-			int vals[] = { 22,33,44,56,67,78,89,100 };
-			int i = data[0] & 0x07;
-			dprintf(1,"data[0]: %02x\n", data[0]);
-			dprintf(1,"i: %d\n", i);
-			_duint(label,vals[i]);
-		}
-		break;
 	case JBD_PARM_DT_SCDELAY:
-		if (dont_interpret) {
-			_duint(label,(data[0] >> 3) & 0x03);
-		} else {
-			int vals[] = {  70,100,200,400 };
-			int i = (data[0] >> 3) & 0x03;
-			dprintf(1,"data[0]: %02x\n", data[0]);
-
-			dprintf(1,"i: %d\n", i);
-			_duint(label,vals[i]);
-		}
-		break;
 	case JBD_PARM_DT_HCOVPDELAY:
-		if (dont_interpret) {
-			_duint(label,(data[0] >> 4) & 0x03);
-		} else {
-			int vals[] = {  1,2,4,8 };
-			int i = (data[0] >> 4) & 0x03;
-			dprintf(1,"data[0]: %02x\n", data[0]);
-
-			dprintf(1,"i: %d\n", i);
-			_duint(label,vals[i]);
-		}
-
-		break;
 	case JBD_PARM_DT_HCUVPDELAY:
-		if (dont_interpret) {
-			_duint(label,(data[0] >> 6) & 0x03);
-		} else {
-			int vals[] = {  1,4,8,16 };
-			int i = (data[0] >> 6) & 0x03;
-			dprintf(1,"data[0]: %02x\n", data[0]);
+		{
+			struct jbd_field *fp = jbd_field_get(dt);
+			int i = (data[fp->byte] & fp->mask) >> fp->shift;
 
-			dprintf(1,"i: %d\n", i);
-			_duint(label,vals[i]);
+			dprintf(1,"data[%d]: %02x, i: %d\n", fp->byte, data[fp->byte], i);
+			if (dont_interpret)
+				_duint(label,i);
+			else
+				_duint(label,fp->vals[i]);
 		}
 		break;
 	}
@@ -796,21 +779,75 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 		if (parse_bits(value,ntc_bits,&mask)) return -1;
 		_putshort(data,mask);
 		break;
+	/* The rest share a register with other params: read it, change only
+	   this param's bits, write it back */
 	case JBD_PARM_DT_B0:
-		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 1) return -1;
+		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 2) return -1;
 		data[0] = atoi(value);
 		break;
 	case JBD_PARM_DT_B1:
-		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 1) return -1;
+		if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 2) return -1;
 		data[1] = atoi(value);
+		break;
+	case JBD_PARM_DT_DOUBLE:
+		{
+			int on;
+
+			if (strcasecmp(value,"true") == 0 || strcmp(value,"1") == 0)
+				on = 1;
+			else if (strcasecmp(value,"false") == 0 || strcmp(value,"0") == 0)
+				on = 0;
+			else {
+				printf("error: %s must be true/false or 1/0: %s\n", pp->label, value);
+				return -1;
+			}
+			if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 2) return -1;
+			data[0] = (data[0] & 0x7f) | (on ? 0x80 : 0);
+		}
+		break;
+	case JBD_PARM_DT_DSGOC2:
+	case JBD_PARM_DT_DSGOC2DELAY:
+	case JBD_PARM_DT_SCVAL:
+	case JBD_PARM_DT_SCDELAY:
+	case JBD_PARM_DT_HCOVPDELAY:
+	case JBD_PARM_DT_HCUVPDELAY:
+		{
+			struct jbd_field *fp = jbd_field_get(pp->dt);
+			int count = (fp->mask >> fp->shift) + 1;
+			char *end;
+			long num;
+			int i;
+
+			/* the register holds an index - the value has to be one of
+			   the table entries, anything else would write a wrong index */
+			num = strtol(value,&end,10);
+			for(i=0; i < count; i++) {
+				if (end != value && !*end && fp->vals[i] == num) break;
+			}
+			if (i == count) {
+				printf("error: invalid value for %s: %s\nvalid values are:", pp->label, value);
+				for(i=0; i < count; i++) printf(" %d",fp->vals[i]);
+				printf("\n");
+				return -1;
+			}
+			if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 2) return -1;
+			dprintf(3,"%s: index %d, reg %02x before: %02x%02x\n", pp->label, i, pp->reg, data[0], data[1]);
+			data[fp->byte] = (data[fp->byte] & ~fp->mask) | ((i << fp->shift) & fp->mask);
+			dprintf(3,"%s: reg %02x after: %02x%02x\n", pp->label, pp->reg, data[0], data[1]);
+		}
 		break;
 	case JBD_PARM_DT_FLOAT:
 		_putshort(data,atof(value));
 		break;
 	case JBD_PARM_DT_STR:
 		len = strlen(value);
+		if (len > sizeof(data)) len = sizeof(data);
 		memcpy(data,value,len);
 		break;
+	default:
+		/* never send data[] unset */
+		printf("error: writing %s is not supported\n", pp->label);
+		return -1;
 	}
 //	bindump("write data",data,len);
 	return jbd_rw(h, JBD_CMD_WRITE, pp->reg, data, len);
