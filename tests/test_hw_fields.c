@@ -167,6 +167,45 @@ int main(void) {
 	chkw("SCDelay","3",-1,JBD_REG_HCOC,0x9950);
 	chkw("DSGOC2Delay","-1",-1,JBD_REG_HCOC,0x9950);
 
+	/* -n: the value is the index, the same thing -r -n prints.  HCOVPDelay
+	   index 2 is 4 seconds - without -n "2" is the value 2 seconds (index 1) */
+	setreg(JBD_REG_HTRT,0xB005);
+	dont_interpret = 1;
+	chkw("HCOVPDelay","2",0,JBD_REG_HTRT,0xA005);
+	chkw("HCOVPDelay","3",0,JBD_REG_HTRT,0xB005);
+	chkw("HCUVPDelay","3",0,JBD_REG_HTRT,0xF005);
+	chkw("HCOVPDelay","4",-1,JBD_REG_HTRT,0xF005);
+	chkw("HCOVPDelay","-1",-1,JBD_REG_HTRT,0xF005);
+	chkw("HCOVPDelay","8",-1,JBD_REG_HTRT,0xF005);
+	setreg(JBD_REG_HCOC,0x9950);
+	chkw("SCValue","5",0,JBD_REG_HCOC,0x9D50);
+	chkw("DSGOC2","15",0,JBD_REG_HCOC,0x9D5F);
+	chkw("DSGOC2","16",-1,JBD_REG_HCOC,0x9D5F);
+	dont_interpret = 0;
+	setreg(JBD_REG_HTRT,0xB005);
+	chkw("HCOVPDelay","2",0,JBD_REG_HTRT,0x9005);
+
+	/* -n round trip: every index written reads back (as -r -n shows it)
+	   as itself */
+	dont_interpret = 1;
+	for(i=0; labels[i]; i++) {
+		jbd_params_t *pp = _getp(labels[i]);
+		struct jbd_field *fp = jbd_field_get(pp->dt);
+		int j,count = (fp->mask >> fp->shift) + 1;
+		char value[16];
+
+		for(j=0; j < count; j++) {
+			setreg(pp->reg,0x5AA5);
+			sprintf(value,"%d",j);
+			if (write_parm(0,pp,value) != 0 || shown(labels[i]) != j) {
+				printf("FAIL: -n %s=%d reads back as %g\n", labels[i], j, shown(labels[i]));
+				failed++;
+			}
+		}
+		printf("ok: -n %s: all %d indexes round trip\n", labels[i], count);
+	}
+	dont_interpret = 0;
+
 	/* every value of every field, over all-zeros and all-ones */
 	for(i=0; labels[i]; i++) {
 		roundtrip(labels[i],0x0000);

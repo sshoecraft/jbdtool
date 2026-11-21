@@ -86,13 +86,62 @@ to write parameters, specify a key value pair after -w
 
 jbdtool -t ip:10.0.0.1 -w BalanceStartVoltage 4050 BalanceWindow 20
 
--w exits factory mode with 0x0000, which persists writes on the boards this
-was tested on.  If a board loses its settings at power off, write with -W
-instead: it exits with 0x2828 (exit and save, the exit JBD's protocol manual
-documents).  -W also ZEROES the protection event counters (register 0xAA -
-short circuit, over/under voltage, temperature, restarts).  They are in the
-normal info output (ProtectionCounts, below) - save that first if you want
-to keep them.
+Values are read and written in the BMS's own register units - what -r prints
+is what -w takes:
+
+	pack voltages		10 mV	(16.8V = 1680)
+	cell voltages		mV	(4.2V = 4200)
+	currents		10 mA	(30A = 3000)
+	capacities		10 mAh	(75Ah = 7500)
+	temperatures		0.1 K	(25C = 2981, ie. 2731 + C * 10)
+
+A value in the wrong units is written as-is: a settings file with pack
+voltages in mV instead of 10 mV left one reported pack with a 116V pack under
+voltage limit, stuck in under voltage protection.
+
+If an error stops a write partway (unknown parameter, bad value, failed
+write) jbdtool exits non-zero.  Parameters written before the error may
+already be applied.
+
+
+Saving writes: -w and -W
+
+-w exits factory mode with 0x0000.  On older firmware that saves the writes:
+a 2.5 board (SP15S008C-P14S-100A) keeps them through power cycles.  Newer
+firmware does not - a 3.5 board (SP04S010A-P4S-30A) was reported going back
+to its old settings when the battery connector was pulled.
+
+-W exits with 0x2828 instead, "exit and save", the only exit JBD's protocol
+manual documents.  It saves on both.  It also ZEROES the protection event
+counters (register 0xAA, see Protection counts below) - save the info output
+first if you want to keep them.  The XiaoXiang app was reported to save with
+0x2828 on every settings screen, so it clears them too.
+
+	jbdtool -t ip:10.0.0.1 -W BalanceStartVoltage 4050
+
+
+Hardware protection settings
+
+DoubleOCSC, SCValue, SCDelay, DSGOC2 and DSGOC2Delay share register 0x38;
+HCOVPDelay, HCUVPDelay and SCRelease share 0x39.  Writing one changes only
+its own bits.  Except for SCRelease, the register holds an index into a
+fixed list, so the value must be one from the list - anything else is an
+error and nothing is written:
+
+	DoubleOCSC	true, false (or 1, 0)
+	SCValue		22 33 44 56 67 78 89 100
+	SCDelay		70 100 200 400
+	DSGOC2		8 11 14 17 19 22 25 28 31 33 36 39 42 44 47 50
+	DSGOC2Delay	8 20 40 80 160 320 640 1280
+	HCOVPDelay	1 2 4 8
+	HCUVPDelay	1 4 8 16
+
+With -n these are the raw index instead, both ways: -r -n prints the index
+and -w -n takes it (0 to list length - 1), so -n output writes back
+unchanged.  Mixing them is not: HCOVPDelay index 2 is 4 seconds, but
+"-w HCOVPDelay 2" without -n sets 2 seconds.
+Before 1.9.5 writing any of these sent random bytes to the register; if a
+pack was written with an older jbdtool, check them.
 
 
 Protection counts
@@ -144,3 +193,35 @@ NtcConfig bits: NTC1 (0x01) through NTC8 (0x80)
 to send all output to a file, use -o.   If the filename ends with .json, file will be written in JSON format:
 
 jbdtool -t can:can0,500000 -j -o pack_1.json
+
+
+Raw registers
+
+-R reads one register and shows it raw: a single word as signed, unsigned
+and hex, a longer reply as every word in hex.
+
+	jbdtool -t ip:10.0.0.1 -R 0x38
+
+-X (reset BMS) is rejected by 2.5 firmware (the BMS answers 0x80) and does
+nothing there.
+
+scripts/jbd_raw_write.py writes raw register values over an ip target
+without going through jbdtool's parameter code - for putting a register back
+by hand.  It exits factory mode with 0x0000 unless given --save (0x2828,
+which zeroes the protection counts):
+
+	scripts/jbd_raw_write.py 10.0.0.1 38=9950 39=b005
+
+
+Tests
+
+	cd tests && make test
+
+runs the offline tests (no BMS needed).  The hardware tests write to a real
+BMS - read the header of each before running it:
+
+	tests/hw_fields_hwtest.sh	writes the 0x38/0x39 settings back with their
+				current values, then changes one field in each
+				and restores it
+	tests/eeprom_commit_test.sh	compares -w and -W across power cycles; it
+				uses -W, which zeroes the protection counts

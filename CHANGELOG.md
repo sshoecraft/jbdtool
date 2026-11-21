@@ -61,3 +61,11 @@ version		date		what
 				of written.
 				tests/test_hw_fields: offline test with a fake
 				register file.
+1.9.6		2026-11-21	-n writes for the indexed protection fields
+				With -n, -w takes the raw index for SCValue, SCDelay,
+				DSGOC2, DSGOC2Delay, HCOVPDelay and HCUVPDelay - the
+				same thing -r -n prints - so -n output writes back
+				unchanged.  Before, -w always took the real value:
+				-n output was rejected, or for HCOVPDelay/HCUVPDelay
+				some indexes are also valid values and were written
+				as the wrong setting (index 2 = 4s, "2" set 2s).

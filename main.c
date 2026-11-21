@@ -31,7 +31,7 @@ typedef struct mybmm_config mybmm_config_t;
 #include "mqtt.h"
 #endif
 
-#define VERSION "1.9.5"
+#define VERSION "1.9.6"
 #include "build.h"
 
 int debug = 0;
@@ -818,16 +818,28 @@ int write_parm(void *h, struct jbd_params *pp, char *value) {
 			long num;
 			int i;
 
-			/* the register holds an index - the value has to be one of
-			   the table entries, anything else would write a wrong index */
+			/* the register holds an index.  With -n the value IS the index
+			   (what -r -n prints), otherwise it has to be one of the table
+			   entries - anything else would write a wrong index */
 			num = strtol(value,&end,10);
-			for(i=0; i < count; i++) {
-				if (end != value && !*end && fp->vals[i] == num) break;
+			if (end == value || *end) {
+				i = count;
+			} else if (dont_interpret) {
+				i = (num >= 0 && num < count) ? num : count;
+			} else {
+				for(i=0; i < count; i++) {
+					if (fp->vals[i] == num) break;
+				}
 			}
 			if (i == count) {
-				printf("error: invalid value for %s: %s\nvalid values are:", pp->label, value);
-				for(i=0; i < count; i++) printf(" %d",fp->vals[i]);
-				printf("\n");
+				printf("error: invalid value for %s: %s\n", pp->label, value);
+				if (dont_interpret) {
+					printf("with -n the value is the index: 0 to %d\n", count-1);
+				} else {
+					printf("valid values are:");
+					for(i=0; i < count; i++) printf(" %d",fp->vals[i]);
+					printf("\n");
+				}
 				return -1;
 			}
 			if (jbd_rw(h, JBD_CMD_READ, pp->reg, data, sizeof(data)) < 2) return -1;
